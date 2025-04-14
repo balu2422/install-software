@@ -1,0 +1,270 @@
+Verify Docker Version
+docker version
+
+View System Wide Information
+docker info
+
+Search Docker Images in Registry Server (alpine)
+docker search alpine
+
+Download the Latest Version of Image (alpine)
+docker pull alpine:latest
+
+Download Ubuntu:14.04 Docker Image
+docker pull ubuntu:14.04
+
+List All Downloaded Docker Container Images
+docker images
+
+Spin Up a Docker Container for nginx (mynginx1)
+docker run -d --name mynginx1 -p 9010:80 nginx
+
+Spin Up a Docker Container in Detached Mode for nginx (mynginx2)
+docker run -d --name mynginx2 -p 9011:80 nginx
+
+Attach to Running Docker Container
+docker attach <container-id>
+
+List All Running Containers
+docker ps
+
+List All Containers (including stopped)
+docker ps -a
+
+Pull Image alpine and Create Container myalpine1
+
+docker pull alpine
+docker run -d --name myalpine1 alpine
+docker start myalpine1
+docker stop myalpine1
+docker restart myalpine1
+docker kill myalpine1
+
+Create Containers from alpine Image (myalpine2, myalpine3, myalpine4)
+
+docker run -d --name myalpine2 alpine
+docker run -d --name myalpine3 alpine
+docker run -d --name myalpine4 alpine
+
+Remove a Container (myalpine2)
+docker rm myalpine2
+
+Remove a Running Container Forcefully (myalpine3)
+docker rm -f myalpine3
+
+Delete the Image Ubuntu:14.04
+docker rmi ubuntu:14.04
+
+Display Container IP Address (myalpine4)
+docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' myalpine4
+
+Display Logs for Container (myalpine)
+docker logs myalpine
+
+Inspect the Container (myalpine4)
+docker inspect myalpine4
+
+Display Stats for myalpine4 (live streaming)
+docker stats myalpine4
+
+Display Running Processes of a Container
+docker top <container-id>
+
+Find the Size of All Docker Objects
+docker system df
+
+Find Details of All Docker Objects
+docker system df -v
+
+Remove All Images Created More Than 12 Hours Ago
+docker image prune --filter "until=12h"
+
+Stop All Running Containers
+docker stop $(docker ps -q)
+
+
+Difference Between -i and -it Options
+
+docker run -i alpine /bin/sh
+docker run -it alpine /bin/sh
+
+Run a New Docker Container (my-container) from nginx Image
+docker run -d --name my-container -p 8000:80 nginx
+
+Run a New Docker Container (my-container2) from busybox Image with Environment Variable
+docker run -d --name my-container2 -e MY_ENVIRONMENT_VARIABLE=value busybox
+
+Run a New Docker Container (my-container3) from busybox Image as User "nobody"
+docker run -d --name my-container3 --user nobody busybox
+
+Create a MySQL DB Container (mysqldb1) with Named Volume
+docker run -d --name mysqldb1 -v mysqlvol:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=H@ckath0n -p 3306:3306 mysql
+
+Create a Dockerfile for a Simple Node.js Application
+
+FROM node:latest
+WORKDIR /usr/src/app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 3000
+CMD ["node", "app.js"]
+
+Create a docker-compose.yml File for Front-End and Back-End Application
+
+version: '3'
+services:
+  frontend:
+    image: react-app
+    ports:
+      - "3000:3000"
+  backend:
+    image: node-app
+    ports:
+      - "5000:5000"
+Build Docker Image
+docker build -t <image-name> .
+
+Tag Docker Image
+docker tag <image-name> <repository>:<tag>
+
+Push Docker Image to Docker Hub
+docker push <repository>:<tag>
+
+Pull Docker Image
+docker pull <repository>:<tag>
+
+Run Docker Container
+docker run -d --name <container-name> <image-name>
+
+Start Docker Container
+docker start <container-id>
+
+Stop Docker Container
+docker stop <container-id>
+
+Restart Docker Container
+docker restart <container-id>
+
+Remove Docker Container
+docker rm <container-id>
+
+Remove Docker Image
+docker rmi <image-id>
+
+List Docker Containers
+docker ps
+
+List All Docker Containers (including stopped)
+docker ps -a
+
+List Docker Images
+docker images
+
+Inspect Docker Container
+docker inspect <container-id>
+
+View Docker Container Logs
+docker logs <container-id>
+
+Attach to Running Docker Container
+docker attach <container-id>
+
+Commit Changes to Docker Container
+docker commit <container-id> <new-image-name>
+
+Copy Files from Docker Container to Host
+docker cp <container-id>:<container-path> <host-path>
+
+Copy Files from Host to Docker Container
+docker cp <host-path> <container-id>:<container-path>
+
+Execute Command in Running Docker Container
+docker exec -it <container-id> <command>
+
+Pause Docker Container
+docker pause <container-id>
+
+Unpause Docker Container
+docker unpause <container-id>
+
+Kill Docker Container
+docker kill <container-id>
+
+Rename Docker Container
+docker rename <old-name> <new-name>
+
+Create Docker Network
+docker network create <network-name>
+
+List Docker Networks
+docker network ls
+
+Inspect Docker Network
+docker network inspect <network-id>
+
+Connect Docker Container to Network
+docker network connect <network-id> <container-id>
+
+Disconnect Docker Container from Network
+docker network disconnect <network-id> <container-id>
+
+Remove Docker Network
+docker network rm <network-id>
+
+Create Docker Volume
+docker volume create <volume-name>
+
+List Docker Volumes
+docker volume ls
+
+Inspect Docker Volume
+docker volume inspect <volume-id>
+
+Remove Docker Volume
+docker volume rm <volume-id>
+
+Prune Unused Docker Volumes
+docker volume prune
+
+Prune Unused Docker Networks
+docker network prune
+
+Prune Unused Docker Containers
+docker container prune
+
+Prune Unused Docker Images
+docker image prune
+
+Prune All Unused Docker Resources
+docker system prune
+
+Save Docker Image to Tar File
+docker save -o <path-to-tar-file> <image-name>
+
+Load Docker Image from Tar File
+docker load -i <path-to-tar-file>
+
+Export Docker Container to Tar File
+docker export -o <path-to-tar-file> <container-id>
+
+Import Docker Container from Tar File
+docker import <path-to-tar-file>
+
+View Docker System Information
+docker info
+
+View Docker Version
+docker version
+
+Login to Docker Hub
+docker login
+
+Logout from Docker Hub
+docker logout
+
+Create Docker Secret
+echo "<secret-value>" | docker secret create <secret-name> -
+
+List Docker Secrets
+docker secret ls

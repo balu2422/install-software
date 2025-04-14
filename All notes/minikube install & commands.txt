@@ -1,0 +1,213 @@
+Install minikube
+---------------------------------------------------------------------
+curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
+sudo install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
+
+minikube version
+minikube start
+
+sudo snap install kubectl --classic 
+kubectl version
+----------------------------------------------------------------------------------------
+
+kubectl config view
+kubectl cluster-info
+kubectl get nodes
+kubectl config use-context <context-name>
+kubectl version
+
+Node Management
+
+kubectl top nodes
+kubectl cordon <node-name>
+kubectl uncordon <node-name>
+kubectl drain <node-name> --ignore-daemonsets
+
+
+Pod Management
+
+kubectl get pods --all-namespaces
+kubectl get pods -n <namespace-name>
+kubectl describe pod <pod-name>
+kubectl logs <pod-name>
+kubectl logs <pod-name> -c <container-name>
+kubectl exec -it <pod-name> -- /bin/bash
+kubectl get pod <pod-name> -o wide
+kubectl delete pod <pod-name>
+kubectl top pods
+kubectl get pods --field-selector=status.phase=Running
+kubectl get pods --field-selector=status.phase=Pending
+kubectl get pods --sort-by=.metadata.name
+
+Service Management
+
+kubectl get svc -n <namespace-name>
+kubectl describe service <service-name>
+kubectl delete svc <service-name>
+kubectl expose pod <pod-name> --port=<port> --target-port=<target-port> --name=<service-name>
+kubectl expose deployment <deployment-name> --port=<port> --target-port=<target-port> --name=<service-name>
+kubectl expose service <service-name> --port=<port> --target-port=<target-port> --name=<new-service-name>
+kubectl apply -f service.yml
+
+Deployment Management
+
+kubectl get deployments
+kubectl describe deployment <deployment-name>
+kubectl delete deployment <deployment-name>
+kubectl scale deployment <deployment-name> --replicas=<number>
+kubectl rollout status deployment <deployment-name>
+kubectl rollout history deployment <deployment-name>
+kubectl rollout undo deployment <deployment-name>
+kubectl set image deployment/<deployment-name> <container-name>=<new-image>
+kubectl apply -f deployment.yml
+
+Namespace Management
+
+kubectl create namespace <namespace-name>
+kubectl get namespaces
+kubectl delete namespace <namespace-name>
+kubectl delete all --all -n <namespace-name>
+
+ConfigMap and Secret Management
+
+kubectl get configmaps
+kubectl describe configmap <configmap-name>
+kubectl create configmap <configmap-name> --from-literal=<key>=<value>
+kubectl create configmap <configmap-name> --from-file=<file-path>
+kubectl delete configmap <configmap-name>
+kubectl get secrets
+kubectl describe secret <secret-name>
+kubectl create secret generic <secret-name> --from-literal=<key>=<value>
+kubectl create secret generic <secret-name> --from-file=<file-path>
+kubectl delete secret <secret-name>
+
+
+ReplicaSet Management
+
+kubectl get replicasets
+kubectl describe replicaset <replicaset-name>
+kubectl delete replicaset <replicaset-name>
+
+
+Job and CronJob Management
+
+kubectl get jobs
+kubectl describe job <job-name>
+kubectl create job <job-name> --image=<image>
+kubectl delete job <job-name>
+kubectl get cronjobs
+kubectl describe cronjob <cronjob-name>
+kubectl create cronjob <cronjob-name> --image=<image> --schedule="<schedule>"
+kubectl delete cronjob <cronjob-name>
+
+
+Ingress Management
+
+kubectl get ingress
+kubectl describe ingress <ingress-name>
+kubectl create ingress <ingress-name> --rule="<host>/<path>=<service>:<port>"
+kubectl delete ingress <ingress-name>
+
+
+Persistent Volume and Persistent Volume Claim Management
+
+kubectl get pvc
+kubectl describe pvc <pvc-name>
+kubectl create -f <pvc-file.yaml>
+kubectl delete pvc <pvc-name>
+kubectl get pv
+kubectl describe pv <pv-name>
+kubectl create -f <pv-file.yaml>
+kubectl delete pv <pv-name>
+
+
+StorageClass Management
+
+kubectl get storageclass
+kubectl describe storageclass <storageclass-name>
+kubectl create -f <storageclass-file.yaml>
+kubectl delete storageclass <storageclass-name>
+
+
+ServiceAccount Management
+
+kubectl get serviceaccounts
+kubectl describe serviceaccount <serviceaccount-name>
+kubectl create serviceaccount <serviceaccount-name>
+kubectl delete serviceaccount <serviceaccount-name>
+
+Role and RoleBinding Management
+
+kubectl get roles
+kubectl describe role <role-name>
+kubectl create role <role-name> --verb=<verb> --resource=<resource>
+kubectl delete role <role-name>
+kubectl get rolebindings
+kubectl describe rolebinding <rolebinding-name>
+kubectl create rolebinding <rolebinding-name> --role=<role-name> --serviceaccount=<namespace>:<serviceaccount-name>
+kubectl delete rolebinding <rolebinding-name>
+
+
+ClusterRole and ClusterRoleBinding Management
+
+kubectl get clusterroles
+kubectl describe clusterrole <clusterrole-name>
+kubectl create clusterrole <clusterrole-name> --verb=<verb> --resource=<resource>
+kubectl delete clusterrole <clusterrole-name>
+kubectl get clusterrolebindings
+kubectl describe clusterrolebinding <clusterrolebinding-name>
+kubectl create clusterrolebinding <clusterrolebinding-name> --clusterrole=<clusterrole-name> --serviceaccount=<namespace>:<serviceaccount-name>
+kubectl delete clusterrolebinding <clusterrolebinding-name>
+
+
+NetworkPolicy Management
+
+kubectl get networkpolicies
+kubectl describe networkpolicy <networkpolicy-name>
+kubectl create -f <networkpolicy-file.yaml>
+kubectl delete networkpolicy <networkpolicy-name>
+
+
+Endpoint Management
+
+kubectl get endpoints
+kubectl describe endpoint <endpoint-name>
+kubectl create -f <endpoint-file.yaml>
+kubectl delete endpoint <endpoint-name>
+
+
+DaemonSet Management
+
+kubectl get daemonsets
+kubectl describe daemonset <daemonset-name>
+kubectl create -f <daemonset-file.yaml>
+kubectl delete daemonset <daemonset-name>
+
+
+StatefulSet Management
+
+kubectl get statefulsets
+kubectl describe statefulset <statefulset-name>
+kubectl create -f statefulset.yml
+kubectl delete statefulset <statefulset-name>
+
+
+Horizontal Pod Autoscaler Management
+
+kubectl get hpa
+kubectl describe hpa <hpa-name>
+kubectl create -f hpa-file.yaml
+kubectl delete hpa <hpa-name>
+
+--------------------------------
+
+
+
+
+
+
+
+
+
+
+

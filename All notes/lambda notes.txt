@@ -1,0 +1,753 @@
+Lambda :
+===========
+Q1. What is AWS Lambda?
+
+AWS Lambda is a serverless compute service provided by Amazon Web Services (AWS). It allows you to run code without provisioning or managing servers.
+
+Key Features:
+Event-driven Execution: Executes code in response to events, such as changes in data, API requests, or scheduled tasks.
+Fully Managed: AWS handles the infrastructure, scaling, and maintenance.
+Pay-as-you-go: Charges are based on the number of requests and the compute time consumed, measured in milliseconds.
+Language Support: Supports several programming languages like Python, Node.js, Java, Go, and more.
+Integration: Integrates seamlessly with AWS services like S3, DynamoDB, API Gateway, and more.
+
+
+
+Q2. What events can trigger an AWS Lambda function?
+
+AWS Lambda functions can be triggered by various event sources such as:
+
+1. Storage Services
+   Amazon S3: Events like object creation, deletion, or modification (e.g., file uploads).
+
+2. Database Services
+   Amazon DynamoDB Streams: Changes in DynamoDB tables (insert, update, delete events).
+
+4. Application Integration Services
+   Amazon API Gateway: HTTP requests routed to Lambda functions.
+   Amazon EventBridge (CloudWatch Events): Scheduled tasks or custom events.
+   Amazon Simple Notification Service (SNS): Notifications and fan-out messaging.
+   Amazon Simple Queue Service (SQS): Message queues for asynchronous workloads.
+
+5. Stream Processing
+   Amazon Kinesis Data Streams: Real-time data streaming and processing.
+
+
+
+Q3. How does AWS Lambda handle scaling?
+
+AWS Lambda handles scaling automatically and seamlessly. Here's how:
+
+Concurrency-based Scaling:
+Lambda scales by running multiple instances of your function in parallel, based on the number of incoming events.
+Each event triggers a separate execution environment.
+
+Automatic Elasticity:
+Lambda dynamically scales up or down based on demand, without any manual intervention or pre-configuration.
+
+Burst Limits:
+Lambda supports an initial burst of function invocations (e.g., 1,000 concurrent executions per Region for most accounts).
+
+Sustained Scaling:
+After the burst limit, scaling increases gradually at a rate of additional 500 instances per minute per Region.
+
+Provisioned Concurrency:
+For consistent, low-latency performance, you can pre-warm function instances by enabling provisioned concurrency.
+
+Regional Quotas:
+Scaling is subject to concurrency quotas that can be increased by requesting AWS Support.
+
+
+
+
+Q4. Can Lambda functions run on a timed schedule?
+
+
+Yes, Lambda functions can run on a timed schedule using Amazon CloudWatch Events or EventBridge. 
+You can create a rule to trigger the Lambda function at specific times or intervals, such as every hour or every day at a certain time.
+
+Example: Using Aws console
+
+steps:
+
+1. Navigate to the AWS Lambda console.
+2. Click "Create function" and set it up. For example, choose a simple Python function that logs a message.
+3. Navigate to the Amazon CloudWatch console. Under Events, choose Rules and click Create rule.
+4. In the Event Source section, choose Schedule and enter the cron expression or rate expression (e.g., rate(1 hour) or cron(0 12 * * ? *) for 12 PM every day)..
+5. Under Targets, choose Lambda function and Select the Lambda function you created.
+6. Click Create and your Lambda function will now be triggered on the specified schedule.
+
+Using Aws CLI:
+
+steps:
+
+1. Create the Lambda function (eg my-lambda-function)
+2. Create an EventBridge Rule (for scheduled events)
+
+   Command: aws events put-rule \
+ 		 --name "MyScheduledRule" \
+  		 --schedule-expression "rate(1 hour)" \
+  		 --state "ENABLED"
+3. Grant EventBridge permission to invoke the Lambda function:
+
+   Command: aws lambda add-permission \
+ 	      --function-name "my-lambda-function" \
+  		--principal "events.amazonaws.com" \
+  		--statement-id "MyScheduledRuleStatement" \
+  		--action "lambda:InvokeFunction" \
+  		--source-arn "arn:aws:events:REGION:ACCOUNT_ID:rule/MyScheduledRule"
+4. Attach the Lambda function to the rule
+
+   Command: aws events put-targets \
+  		--rule "MyScheduledRule" \
+  		--targets "Id"="1","Arn"="arn:aws:lambda:REGION:ACCOUNT_ID:function:my-lambda-function"
+
+
+
+Q5. What is the maximum execution duration for a Lambda function?
+
+The maximum execution duration for an AWS Lambda function is 15 minutes (900 seconds). We can set timeout between 1 second and 15 minutes.
+Exceeding timeout results in function termination and failure. Cold starts may increase execution time for the first invocation.
+
+
+Q6. How can a Lambda function retain state between invocations?
+
+
+Lambda functions are stateless by design, meaning they don't retain state between invocations.
+However, you can use external services to maintain state across invocations
+
+Amazon DynamoDB: Store and retrieve state data in a DynamoDB table.
+Amazon S3: Store state in S3 buckets for later retrieval.
+Amazon RDS: Use relational databases to persist data.
+Amazon ElastiCache: For caching state in-memory (Redis or Memcached).
+AWS Step Functions: Use Step Functions for state management across multiple Lambda invocations.
+
+Example using aws cli:
+
+Step 1: Create a DynamoDB Table
+
+Command:
+
+aws dynamodb create-table \
+    --table-name LambdaStateTable \
+    --attribute-definitions AttributeName=StateID,AttributeType=S \
+    --key-schema AttributeName=StateID,KeyType=HASH \
+    --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
+
+
+Step 2: Insert Data (State) into DynamoDB
+
+Command:
+
+aws dynamodb put-item \
+    --table-name LambdaStateTable \
+    --item '{"StateID": {"S": "Invocation1"}, "StateData": {"S": "Data for invocation 1"}}'
+
+Step 3: Retrieve State from DynamoDB
+
+Command:
+
+aws dynamodb get-item \
+    --table-name LambdaStateTable \
+    --key '{"StateID": {"S": "Invocation1"}}'
+
+
+
+
+
+Q7. What are some common use cases for AWS Lambda?
+
+Below are the some command use cases of AWS Lambda:
+
+Data Processing: Real-time stream and log processing (e.g., Kinesis, DynamoDB Streams).
+Web Applications: Backend for serverless web/mobile apps (via API Gateway).
+Automation: Infrastructure tasks, provisioning, and CI/CD pipelines.
+File Processing: Process files in S3 (e.g., image resizing, transcoding).
+Analytics: Real-time data ingestion and processing for analytics.
+Event-Driven: Respond to events like S3 uploads or DynamoDB changes.
+Machine Learning: Run inference on ML models (e.g., image/text processing).
+Security: Automate security tasks and incident responses.
+Scheduled Tasks: Periodic tasks like backups and health checks.
+Chatbots: Build chatbots using Amazon Lex for real-time interaction.
+
+
+
+Q8. What are the best practices for AWS Lambda?
+
+Below are the some of best practices for AWS Lambda
+
+1. Each function should have a single responsibility to maintain simplicity and clarity.
+2. Ensure your Lambda functions have an appropriate timeout based on the task, but avoid running functions longer than necessary.
+3. Minimize package size to reduce cold start times.
+4. Enable detailed logging with CloudWatch to monitor function execution.
+5. Use CloudWatch metrics to track performance and set alarms for failures or timeouts.
+6. Follow the principle of least privilege for IAM roles and permissions.
+7. Use environment variables to store sensitive information securely.
+
+
+
+Q9. How do you create an AWS Lambda function using the AWS CLI?
+
+Follow below steps
+
+1. Prepare the Lambda Function Code
+
+#lambda_fucntion.py
+
+def lambda_handler(event, context):
+    return {
+        'statusCode': 200,
+        'body': 'Hello, World!'
+    }
+
+
+2. Create a Deployment Package
+
+You need to package your Python script into a .zip file:
+
+command: zip function.zip lambda_function.py
+
+3. Create an IAM Role for Lambda
+
+a. Lambda requires an IAM role to execute. Create a role with the appropriate permissions.
+b. Create a trust policy (trust-policy.json):
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+
+
+#AWS CLI Commad:
+
+aws iam create-role \
+    --role-name lambda-execution-role \
+    --assume-role-policy-document file://trust-policy.json
+
+
+4. Attach the AWSLambdaBasicExecutionRole policy to the role:
+
+aws iam attach-role-policy \
+    --role-name lambda-execution-role \
+    --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+5. Create the AWS Lambda function AWS CLI:
+
+Commad:
+
+aws lambda create-function \
+    --function-name myPythonLambdaFunction \
+    --zip-file fileb://function.zip \
+    --handler lambda_function.lambda_handler \
+    --runtime python3.9 \
+    --role arn:aws:iam::YOUR_ACCOUNT_ID:role/lambda-execution-role
+
+6.  list created functions
+
+command:
+
+aws lambda list-functions
+
+7. Invoke lambda function for testing purpose
+
+commad:
+
+aws lambda invoke \
+    --function-name myPythonLambdaFunction \
+    output.txt
+
+
+
+Q10. How can you update the code of an existing Lambda function using the AWS CLI?
+
+Follow below steps to update the code of an existing lambda function:
+
+1. Prepare the Updated Lambda Function Code
+
+#lambda_function.py
+
+def lambda_handler(event, context):
+    return {
+        'statusCode': 200,
+        'body': 'Hello, updated World!'
+    }
+
+
+2. Package the updated code into a .zip file:
+
+command:
+
+zip function.zip lambda_function.py
+
+
+3. Update the Lambda Function Code
+
+aws lambda update-function-code \
+    --function-name myPythonLambdaFunction \
+    --zip-file fileb://function.zip
+
+
+4. Verify the Update
+
+aws lambda invoke \
+    --function-name myPythonLambdaFunction \
+    output.txt
+
+
+
+Q11. How do you add permissions to an AWS Lambda function to allow it to be triggered by an S3 event?
+
+
+Grant S3 permission to invoke the Lambda function.
+Configure S3 to send event notifications to trigger the Lambda function.
+
+steps to implement it through aws cli:
+
+Step 1. add a permission to the Lambda function's resource-based policy that allows Amazon S3 to invoke the function.
+
+Command:
+
+aws lambda add-permission \
+    --function-name myLambdaFunction \
+    --principal s3.amazonaws.com \
+    --statement-id <unique-statement-id> \
+    --action "lambda:InvokeFunction" \
+    --source-arn arn:aws:s3:::YOUR_BUCKET_NAME \
+    --source-account YOUR_ACCOUNT_ID
+
+Step 2. configure the S3 bucket to send event notifications to the Lambda function. 
+
+Command:
+
+aws s3api put-bucket-notification-configuration \
+    --bucket YOUR_BUCKET_NAME \
+    --notification-configuration '{
+      "LambdaFunctionConfigurations": [
+        {
+          "LambdaFunctionArn": "arn:aws:lambda:REGION:YOUR_ACCOUNT_ID:function:myLambdaFunction",
+          "Events": ["s3:ObjectCreated:*"]
+        }
+      ]
+    }'
+
+Step 3: Test by uploading a file to S3 and verifying Lambda execution.
+
+
+
+Q12. How can you monitor AWS Lambda function performance, what important metrics to capture?
+
+To monitor AWS Lambda function performance, you can use Amazon CloudWatch
+
+Key Metrics to capture:
+
+Invocations: Number of function executions.
+Duration: Time taken by the function to execute.
+Errors: Count of failed invocations (e.g., unhandled exceptions).
+Throttles: Number of throttled invocations due to concurrency limits.
+ConcurrentExecutions: Number of Lambda instances running concurrently.
+IteratorAge: Age of the last event processed (for event-driven functions).
+
+Example: Create an Alarm for Lambda Errors
+
+command:
+
+aws cloudwatch put-metric-alarm \
+    --alarm-name "LambdaErrorAlarm" \
+    --metric-name "Errors" \
+    --namespace "AWS/Lambda" \
+    --statistic "Sum" \
+    --period 300 \
+    --threshold 5 \
+    --comparison-operator "GreaterThanOrEqualToThreshold" \
+    --dimensions "Name=FunctionName,Value=myLambdaFunction" \
+    --evaluation-periods 1 \
+    --alarm-actions arn:aws:sns:REGION:ACCOUNT_ID:mySNSTopic
+
+
+
+Q13. How can you use AWS Lambda to process data from an Amazon S3 bucket?
+
+To use AWS Lambda to process data from an Amazon S3 bucket, follow these steps:
+
+Step 1. Create a Lambda Function
+
+import json
+import boto3
+
+def lambda_handler(event, context):
+    s3 = boto3.client('s3')
+    
+    # Extract the S3 bucket and object key from the event
+    bucket = event['Records'][0]['s3']['bucket']['name']
+    key = event['Records'][0]['s3']['object']['key']
+    
+    # Fetch the file from S3
+    response = s3.get_object(Bucket=bucket, Key=key)
+    
+    # Process the file (example: print file content)
+    file_content = response['Body'].read().decode('utf-8')
+    print(file_content)
+    
+    return {
+        'statusCode': 200,
+        'body': json.dumps('File processed successfully!')
+    }
+
+Step 2. Grant S3 Permission to Invoke Lambda
+
+aws lambda add-permission \
+    --function-name myLambdaFunction \
+    --principal s3.amazonaws.com \
+    --statement-id <unique-statement-id> \
+    --action "lambda:InvokeFunction" \
+    --source-arn arn:aws:s3:::YOUR_BUCKET_NAME \
+    --source-account YOUR_ACCOUNT_ID
+
+Step 3. Configure S3 Event Notification
+
+aws s3api put-bucket-notification-configuration \
+    --bucket YOUR_BUCKET_NAME \
+    --notification-configuration '{
+      "LambdaFunctionConfigurations": [
+        {
+          "LambdaFunctionArn": "arn:aws:lambda:REGION:YOUR_ACCOUNT_ID:function:myLambdaFunction",
+          "Events": ["s3:ObjectCreated:*"]
+        }
+      ]
+    }'
+
+Step 4: Upload a file to S3 and verify the Lambda function is triggered.
+
+
+
+
+Q14. How can you use AWS Lambda to respond to HTTP requests?
+
+To use AWS Lambda to respond to HTTP requests, you typically integrate Lambda with Amazon API Gateway. 
+API Gateway acts as a front-end to expose your Lambda function as an HTTP endpoint, enabling it to handle HTTP requests such as GET, POST, PUT, etc.
+
+Steps to Set Up AWS Lambda to Respond to HTTP Requests:
+
+Step 1. Create the Lambda Function
+
+
+Step 2. Create an API Gateway
+
+a. Create an HTTP API using AWS CLI:
+
+aws apigatewayv2 create-api \
+    --name "MyLambdaAPI" \
+    --protocol-type "HTTP"
+
+b. Get the API ID:
+
+aws apigatewayv2 get-apis
+
+c. Create an integration for the Lambda function:
+
+aws apigatewayv2 create-integration \
+    --api-id <API_ID> \
+    --integration-type AWS_PROXY \
+    --integration-uri arn:aws:lambda:REGION:ACCOUNT_ID:function:myLambdaFunction
+
+e. Add a route for the HTTP method (e.g., GET):
+
+aws apigatewayv2 create-route \
+    --api-id <API_ID> \
+    --route-key "GET /" \
+    --target "integrations/<INTEGRATION_ID>"
+
+f. Deploy the API to a stage:
+
+aws apigatewayv2 create-deployment \
+    --api-id <API_ID> \
+    --stage-name "dev"
+
+Step 3. Grant API Gateway Permission to Invoke Lambda
+
+aws lambda add-permission \
+    --function-name myLambdaFunction \
+    --principal apigateway.amazonaws.com \
+    --statement-id <unique-statement-id> \
+    --action "lambda:InvokeFunction"
+
+Step 4 Test the HTTP Endpoint
+
+curl -X GET https://<API_ID>.execute-api.<REGION>.amazonaws.com/dev/
+
+
+
+
+
+
+
+
+Q15. How can you use AWS Lambda to interact with Amazon DynamoDB?
+
+To use AWS Lambda to interact with Amazon DynamoDB, you can write Lambda functions that use the AWS SDK to read from or write to a DynamoDB table.
+The Lambda function can be triggered by DynamoDB Streams event.
+
+Steps with example to use lambda to interact with DynamoDB:
+
+step 1. Create a DynamoDB Table using aws cli
+
+aws dynamodb create-table \
+    --table-name Users \
+    --attribute-definitions AttributeName=userID,AttributeType=S \
+    --key-schema AttributeName=userID,KeyType=HASH \
+    --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
+
+
+step 2. Create a Lambda Function to Interact with DynamoDB
+
+
+import json
+import boto3
+from botocore.exceptions import ClientError
+
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('Users')
+
+def lambda_handler(event, context):
+    # Example: Insert a new user into the table
+    user_id = event.get('userID')
+    user_name = event.get('userName')
+    
+    try:
+        # Put Item (Insert) into DynamoDB table
+        response = table.put_item(
+            Item={
+                'userID': user_id,
+                'userName': user_name
+            }
+        )
+        print(f"PutItem succeeded: {response}")
+        
+        # Get Item (Retrieve) from DynamoDB table
+        response = table.get_item(
+            Key={
+                'userID': user_id
+            }
+        )
+        item = response.get('Item', {})
+        
+        return {
+            'statusCode': 200,
+            'body': json.dumps(item)  # Return retrieved item
+        }
+    
+    except ClientError as e:
+        print(f"Error: {e}")
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': 'Unable to process request'})
+        }
+
+
+This function:
+
+Inserts an item (user data) into the DynamoDB table using put_item().
+
+Retrieves the item from the table using get_item().
+
+
+Step 3. Grant Lambda Permissions to Access DynamoDB
+
+For Lambda to interact with DynamoDB, you need to attach a proper IAM role to your Lambda function with permissions to access DynamoDB.
+
+Create a policy that grants permissions for dynamodb:PutItem and dynamodb:GetItem.
+
+
+Exmaple:
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:PutItem",
+                "dynamodb:GetItem"
+            ],
+            "Resource": "arn:aws:dynamodb:REGION:ACCOUNT_ID:table/Users"
+        }
+    ]
+}
+
+
+Step 4 Set Up a Trigger for Lambda 
+
+aws dynamodb update-table \
+    --table-name Users \
+    --stream-specification StreamEnabled=true,StreamViewType=NEW_AND_OLD_IMAGES
+
+
+
+Then, create an event source mapping for Lambda:
+
+aws lambda create-event-source-mapping \
+    --function-name myLambdaFunction \
+    --event-source arn:aws:dynamodb:REGION:ACCOUNT_ID:table/Users/stream/STREAM_ID \
+    --batch-size 5
+
+Step 5. Test the Lambda Function
+
+a. First, prepare the event data (the JSON object) that will be passed to your Lambda function. 
+
+b. Save the event data into a file (e.g., event.json):
+
+#event data
+
+{
+    "userID": "123",
+    "userName": "John Doe"
+}
+
+b.  Invoke the Lambda Function Using AWS CLI
+
+aws lambda invoke \
+    --function-name myLambdaFunction \
+    --payload file://event.json \
+    response.json
+
+c. Below is the response of lambda function
+
+{
+    "StatusCode": 200,
+    "Payload": "{\"message\": \"User 123 inserted successfully!\"}"
+}
+
+
+
+
+Q16. What are best practices for Lambda security?
+
+Below are the some of the best practices to ensure AWS Lambda security:
+
+
+Use Least Privilege IAM roles and policies.
+Enable VPC access when needed for private resource access.
+Secure sensitive data with encrypted environment variables.
+Implement API Gateway authentication and authorization.
+Ensure data encryption in transit and at rest.
+Monitor Lambda functions with CloudTrail, CloudWatch, and Lambda Insights.
+Use resource-based policies to restrict event sources.
+Deploy functions with version control and use CI/CD pipelines.
+
+
+Q17. How to access lambda function with API gateway?
+
+We need to create an API and configure it to trigger your Lambda function when certain HTTP requests are made (e.g., GET, POST).
+
+steps to access lambda fucntion with API gateway:
+
+Step`1: create a lambda function
+
+step 2: Create an API gateway
+
+a. Create the rest api
+
+aws apigateway create-rest-api \
+    --name "MyLambdaAPI" \
+    --description "API to trigger Lambda function" \
+    --region <your-region>
+
+b. Get the Root Resource
+
+aws apigateway get-resources \
+    --rest-api-id abc12345 \
+    --region <your-region>
+
+c. Create a New Resource
+
+aws apigateway create-resource \
+    --rest-api-id abc12345 \
+    --parent-id root \
+    --path-part "users" \
+    --region <your-region>
+
+d. Create a Method (e.g., GET)
+
+aws apigateway put-method \
+    --rest-api-id abc12345 \
+    --resource-id xyz98765 \
+    --http-method GET \
+    --authorization-type NONE \
+    --region <your-region>
+
+e. Integrate the Lambda Function with the Method
+
+aws apigateway put-integration \
+    --rest-api-id abc12345 \
+    --resource-id xyz98765 \
+    --http-method GET \
+    --type AWS_PROXY \
+    --integration-http-method POST \
+    --uri arn:aws:apigateway:<your-region>:lambda:path/2015-03-31/functions/arn:aws:lambda:<your-region>:<your-account-id>:function:myLambdaFunction/invocations \
+    --region <your-region>
+
+f. Add Lambda Permission to API Gateway
+
+aws lambda add-permission \
+    --function-name myLambdaFunction \
+    --principal apigateway.amazonaws.com \
+    --statement-id unique-id-for-apigateway-permission \
+    --action "lambda:InvokeFunction" \
+    --region <your-region>
+
+g. Deploy the API
+
+aws apigateway create-deployment \
+    --rest-api-id abc12345 \
+    --stage-name prod \
+    --region <your-region>
+
+3. Invoke the Lambda Function via API Gateway
+
+curl https://abc12345.execute-api.<your-region>.amazonaws.com/prod/users
+
+
+
+
+
+Q18. What is a cold start in AWS Lambda?
+
+A cold start in AWS Lambda refers to the initial setup time that Lambda takes when it invokes a function for the first time or after a period of inactivity. 
+This happens because the Lambda service needs to provision a container to run the function, load the function code, and initialize any dependencies.
+
+
+Q19. Why do cold starts happen in AWS Lambda?
+
+Cold starts in AWS Lambda happen because of how Lambda functions are managed in a serverless environment.
+When a function is invoked, AWS needs to allocate resources to execute that function, and this process takes time.
+
+The main reasons for cold starts are:
+
+1. No pre-warmed containers available for the function.
+2. Container and runtime initialization time.
+3. No reused environment for invocations after periods of inactivity.
+4. Language-specific or environment-related overhead (e.g., for Java or .NET).
+5. VPC setup when Lambda functions are inside a VPC.
+6. Lambda needs to scale up and provision new instances for high traffic spikes.
+
+
+
+Q20. How can I reduce the impact of cold starts in AWS Lambda?
+
+To reduce the impact of cold starts in AWS Lambda, there are several strategies you can use. 
+These strategies help minimize initialization times or avoid cold starts entirely by keeping your function warm.
+
+Provisioned Concurrency: allows you to keep a certain number of Lambda function instances pre-warmed and ready to serve requests.
+Reduce initialization logic and minimize the number of dependencies.
+Choose runtimes like Node.js or Python for faster cold starts.
+Periodically invoke the Lambda to keep it warm.
+Optimize memory allocation and function timeout for faster execution.
+Avoid VPC if not required, or optimize ENI capacity in subnets.

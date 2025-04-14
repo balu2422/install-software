@@ -1,0 +1,93 @@
+pending : markdown OIDC lint chekvo
+--------------------------------------
+
+1.create a IAM user(aws_cli_user) attache admin policy to  that user, using cli:
+aws iam create-user --user-name aws-cli_user 
+aws iam attach-user-policy --user-name aws-cli_user --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+
+aws iam list-users
+
+- genrate access key for iam user and configured it: 
+aws iam create-access-key --user-name aws-cli_user
+
+
+
+geneate IAM role name(ec2 s3 access) with policcy allow ec2-s3:
+aws iam create-role --role-name ec2-s3-access --assume-role-policy-document file://trust-policy.json vi file
+----------------------------------------------------------------------------------------------------------
+2. manage s3 bucket
+
+1.create s3 bucket name(my-aws-bucket-balu)
+aws s3api create-bucket --bucket my-aws-bucket-balu --region us-east-1
+
+2.enable version and server side encryption for this bucket
+
+aws s3api put-bucket-versioning --bucket my-aws-bucket-balu --versioning-configuration Status=Enabled
+aws s3api put-bucket-encryption  --bucket  my-aws-bucket-balu --server-side-encryption-configuration '{"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]}'
+			
+3.upload sample file index.txt to this s3 bucket
+aws s3 cp index.html s3://my-aws-bucket-balu/
+4.list all objects in the bucket and 
+aws s3 ls s3://my-aws-bucket-balu/
+5.delete the all object in that bucket.
+aws s3api delete-objects --bucket my-aws-bucket-balu 
+---------------------------------------------------------------------------------------
+
+3.create a vpc and its compnets using awscli.
+   -create ec2 using that vpc.
+--------------------------
+create vpc: 
+aws ec2 create-vpc --cidr-block 10.0.0.0/16 --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=task-vpc}]'
+
+create subnet
+aws ec2 create-subnet --vpc-id vpc-0f539b9415f6cb8a4 --cidr-block 10.0.1.0/24 --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=task-vpc-subnet}]'
+
+map-pub-ip
+aws ec2 modify-subnet-attribute --subnet-id subnet-062b29f917333014d --map-public-ip-on-launch
+
+crete-ig
+aws ec2 create-internet-gateway --tag-specifications 'ResourceType=internet-gateway,Tags=[{Key=Name,Value=task-vpc-igw}]'
+
+attach igw-to-vpc
+aws ec2 attach-internet-gateway --vpc-id vpc-0f539b9415f6cb8a4 --internet-gateway-id igw-00171e44e74024036
+
+create route-table
+aws ec2 create-route-table --vpc-id vpc-0f539b9415f6cb8a4 --tag-specifications 'ResourceType=route-table,Tags=[{Key=Name,Value=task-vpc-rtb}]'
+
+route-attach-igw
+aws ec2 create-route --route-table-id rtb-04408745493f8c285 --destination-cidr-block 0.0.0.0/0 --gateway-id igw-00171e44e74024036
+
+route-association-subnet
+aws ec2 associate-route-table --subnet-id subnet-062b29f917333014d --route-table-id rtb-04408745493f8c285
+
+sg-creation-with vpc:
+aws ec2 create-security-group --group-name task-vpc-sg --description "Security group for task-vpc" --vpc-id vpc-0f539b9415f6cb8a4
+
+
+allow sg- 22port
+aws ec2 authorize-security-group-ingress --group-id sg-0928ec47317f888e4 --protocol tcp --port 22 --cidr 0.0.0.0/0
+
+aws ec2 authorize-security-group-ingress --group-id sg-xxxxxxxx --protocol tcp --port 80 --cidr 0.0.0.0/0
+
+ec2-creation
+aws ec2 run-instances --image-id ami-0e35ddab05955cf57 --count 1 --instance-type t2.micro --security-group-ids sg-0928ec47317f888e4 --subnet-id subnet-062b29f917333014d --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=task-vpc-ec2}]'
+------------------------------------------------------------------
+aws ec2 delete-subnet --subnet-id subnet-062b29f917333014d
+
+aws ec2 detach-internet-gateway --internet-gateway-id igw-00171e44e74024036 --vpc-id vpc-0f539b9415f6cb8a4
+
+aws ec2 delete-internet-gateway --internet-gateway-id igw-00171e44e74024036
+
+aws ec2 delete-route-table --route-table-id rtb-04408745493f8c285
+
+aws ec2 delete-security-group --group-id sg-0928ec47317f888e4
+
+aws ec2 delete-vpc --vpc-id vpc-0f539b9415f6cb8a4
+
+
+termination ec2:
+aws ec2 terminate-instances --instance-ids i-0a2e864535e37fd86
+
+-----------------------------------------------------------------
+
+

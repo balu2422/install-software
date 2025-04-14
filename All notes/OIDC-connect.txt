@@ -1,0 +1,44 @@
+create identity provider 
+-----------
+provider: OIDC
+provider url :https://token.actions.githubusercontent.com
+audience : sts.amazonaws.com
+
+-----------------
+
+create role:
+--------------
+webidentity
+----------provider url :https://token.actions.githubusercontent.com
+----------audience : sts.amazonaws.com
+add permission--admin
+role name-------------------------------------github-role
+role done, "with this role ARN we need add in workflow step."
+----------------
+permissions:
+  id-token: write
+  contents: read
+----------------
+
+id-token: write: This permission allows the workflow to request and use an OpenID Connect (OIDC) token. 
+The OIDC token is used to authenticate with AWS and assume the specified IAM role (arn:aws:iam::879381270949:role/githubaction-idp-role).
+This is essential for securely configuring AWS credentials without hardcoding them in the workflow.
+
+contents: read:" This permission allows the workflow to read the contents of the repository.
+It is necessary for actions like checking out the repository code and running Terraform commands that depend on the repository's files.
+---------------
+
+- name: Configure AWS credentials using OIDC
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: arn:aws:iam::879381270949:role/githubaction-idp-role ------------role ARN-github-role
+        aws-region: us-west-2
+-------------------
+it will authnticate
+-------------------
+
+
+
+
+
+

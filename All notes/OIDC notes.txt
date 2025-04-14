@@ -1,0 +1,327 @@
+------------------------------------------------------------------------------
+Q1. What is an OIDC identity provider in AWS IAM?
+
+Imagine this:
+we have a secure house (AWS). Normally, people need a key (IAM user) to enter. But what if you don’t want to give everyone a key?
+What if someone you trust (like GitHub or Google) can vouch for people and say,
+“Hey, this person is safe — let them in for a bit.”
+That’s what an OIDC Identity Provider does in AWS.
+
+Definition:
+----------
+An OIDC Identity Provider (IdP) in AWS IAM is a way to let trusted external users or systems (like GitHub Actions, Kubernetes, Google) 
+access AWS — without creating a long-term IAM user for them. 
+
+What does it do?
+----------------
+It connects AWS to another identity system (like GitHub or Google) using OpenID Connect (OIDC) — an open, secure identity protocol.
+With it, AWS can:
+✅ Trust the identity from the other system
+✅ Allow temporary access using IAM roles
+✅ Avoid using passwords or permanent credentials
+
+
+How it works see:
+------------------
+Let’s say you're using GitHub Actions to deploy your app to AWS:
+ GitHub issues a secure token (like a temporary ID card).
+ The GitHub Action sends that token to AWS IAM.
+ AWS checks:
+“Is this token really from GitHub?”
+“Is this GitHub repo allowed to access AWS?”
+ If valid, AWS allows that GitHub Action to assume an IAM role with permissions.
+ GitHub Action can now:
+Deploy to S3
+Push images to ECR
+Update services in ECS, etc.
+The access only lasts a short time (temporary), and no passwords or access keys are stored
+----------------------------------------------------------------------------------------------------------------------------------
+
+Q2. How do you create an OIDC identity provider in AWS IAM?
+
+AWS Console:
+-------------
+Go to IAM → Identity Providers
+Click "Add provider"
+Select OpenID Connect
+Enter:
+Provider URL: https://token.actions.githubusercontent.com
+Audience: sts.amazonaws.com
+AWS auto-fetches the thumbprint (you no longer input it for public providers)
+Click “Add provider”
+
+Aws Cli
+-----
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com \
+  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
+
+TF-block
+--------
+resource "aws_iam_openid_connect_provider" "github" {
+  url             = "https://token.actions.githubusercontent.com"
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+}
+-------------------------------------------------------------------------------------------------------------------------------
+
+Q3. What are the prerequisites for creating an OIDC identity provider in AWS IAM?
+
+OIDC Provider URL
+Why Use: This is the URL AWS uses to check if users are allowed to access AWS resources.
+Example: https://token.actions.githubusercontent.com (GitHub Actions).
+
+Audience (Client ID)
+Why Use: AWS needs to know the token is meant for AWS.
+Example: sts.amazonaws.com (for GitHub).
+
+
+IAM Permissions
+Why Use: You need permissions to create and manage the identity provider and roles.
+Example: iam:CreateOpenIDConnectProvider, 
+
+--------------------------------------------------------------
+Q4.How do you manage an OIDC identity provider using AWS CLI?
+
+Create :
+
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com \
+  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
+
+
+List all OIDC providers:
+
+aws iam list-open-id-connect-providers
+
+Getting details of one:
+
+aws iam get-open-id-connect-provider \
+  --open-id-connect-provider-arn arn:aws:iam::<account-id>:oidc-provider/<provider-url>
+
+Delete provider:
+
+aws iam delete-open-id-connect-provider \
+  --open-id-connect-provider-arn arn:aws:iam::<account-id>:oidc-provider/<provider-url>
+
+----------------------------------------------------------------------------
+Q5. What is the role of IAM policies in OIDC federation?
+
+Trust Policy (Who can assume the role)
+
+{
+  "Effect": "Allow",
+  "Principal": {
+    "Federated": "arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com"
+  },
+  "Action": "sts:AssumeRoleWithWebIdentity",
+  "Condition": {
+    "StringEquals": {
+      "token.actions.githubusercontent.com:sub": "repo:my-org/my-repo:ref:refs/heads/main"
+    }
+  }
+}
+
+"Effect": "Allow": Allows the action of assuming the role.
+"Principal": { "Federated": "arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com" }: Specifies that the role can be assumed by the GitHub Actions OIDC provider.
+"Action": "sts:AssumeRoleWithWebIdentity": Allows assuming the role using Web Identity Federation (OIDC token).
+"Condition": { "StringEquals": { "token.actions.githubusercontent.com:sub": "repo:my-org/my-repo:ref:refs/heads/main" } }: Restricts the role assumption to GitHub Actions workflows     running on the main branch of a specific repository.
+
+IAM Role Permission Policy (What the identity can do)
+{
+  "Effect": "Allow",
+  "Action": "s3:ListBucket",
+  "Resource": "arn:aws:s3:::my-bucket"
+}
+
+"Effect": "Allow": Allows the action specified in the policy.
+"Action": "s3:ListBucket": Grants permission to list objects in an S3 bucket.
+"Resource": "arn:aws:s3:::my-bucket": Restricts the action to the specified S3 bucket (my-bucket).
+---------------------------------------------------------------------------------
+
+Q6. Can you provide a Terraform resource block example for creating an OIDC identity provider?
+
+Terraform code with the OIDC provider, IAM role, trust policy, and IAM policy :
+
+
+ Step 1: Create the OIDC Identity Provider for GitHub Actions
+resource "aws_iam_openid_connect_provider" "github" {
+  url             = "https://token.actions.githubusercontent.com"
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+}
+
+ Step 2: Create the IAM Role with Trust Policy
+resource "aws_iam_role" "github_actions_role" {
+  name = "github-actions-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect = "Allow",
+      Principal = {
+        Federated = aws_iam_openid_connect_provider.github.arn
+      },
+      Action = "sts:AssumeRoleWithWebIdentity",
+      Condition = {
+        StringEquals = {
+          "token.actions.githubusercontent.com:sub" = "repo:my-org/my-repo:ref:refs/heads/main"
+        }
+      }
+    }]
+  })
+}
+
+ Step 3: Create IAM Policy for the Role to allow S3 actions
+resource "aws_iam_policy" "github_actions_policy" {
+  name        = "github-actions-policy"
+  description = "Policy to allow GitHub Actions to list objects in an S3 bucket"
+  
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect   = "Allow",
+      Action   = "s3:ListBucket",
+      Resource = "arn:aws:s3:::my-bucket"
+    }]
+  })
+}
+
+# Step 4: Attach the IAM Policy to the IAM Role
+resource "aws_iam_role_policy_attachment" "github_actions_policy_attachment" {
+  policy_arn = aws_iam_policy.github_actions_policy.arn
+  role       = aws_iam_role.github_actions_role.name
+}
+}
+-----------------------------------------------------------------
+
+
+Q7. What are the security considerations when using OIDC identity providers in AWS?
+
+Use strict conditions in trust policy: Only allow trusted sources (like specific repositories or branches) to assume the role.
+Limit access by sub (subject) claim: Restrict access to specific users or repositories using the sub claim.
+Enable CloudTrail to log role assumptions: Use CloudTrail to track and log role usage for security audits.
+Use short session durations: Set a short time limit for role sessions to reduce security risks.
+Rotate thumbprints for private OIDC providers: Regularly update the thumbprint if you use a private OIDC provider.
+Use least privilege when assigning permissions: Only give the role the minimum permissions it needs to perform its tasks.
+
+---------------------------------------------------------------
+Q8. How do you troubleshoot common issues with OIDC federation in AWS?
+
+Problem                                  	Fix
+Access Denied	                Check IAM role trust policy and permission policy
+Invalid identity token	        Check audience (aud) and subject (sub) in JWT
+Thumbprint mismatch	        Use OpenSSL to regenerate thumbprint
+Role doesn’t appear	        Ensure trust conditions match the OIDC token claims
+GitHub Actions error     	Ensure the permissions: block in the workflow is set properly
+------------------------------------------------------------------------------------------
+Q9. How do you update an existing OIDC identity provider in AWS IAM?
+
+Steps to Update OIDC Identity Provider in AWS Console:
+Delete the existing OIDC provider:
+
+Recreate the OIDC provider with the updated details:
+After deleting the old provider, click on Add provider.
+
+Why?
+Because AWS IAM does not allow changes to things like:
+The Provider URL
+Client ID list
+Thumbprint list
+Once an OIDC provider is created, these values are fixed — the only way to “change” them is by deleting and re-creating the provider.
+------------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------------
+WORK FLOW
+   |
+   V
+GitHub Repo (CI/CD)  
+   |
+   | [Requests OIDC token] 🔁 Happens in GitHub Actions Workflow
+
+👉 GitHub Actions workflow includes this block:
+------------------------------------------------------
+permissions:
+  id-token: write       # ✅ Required to request OIDC token
+  contents: read        # (optional: needed to fetch repo code)
+------------------------------------------------------
+   |
+   V
+OIDC Provider (GitHub OIDC)  
+   |  🔁 GitHub issues JWT token to the workflow
+   |     (based on repo, branch, etc.)
+   |
+   | [JWT with `sub`: repo:my-user/my-repo:ref:refs/heads/main]
+   |
+   V
+GitHub Action → AWS STS (AssumeRoleWithWebIdentity)  
+👉 GitHub workflow uses `aws-actions/configure-aws-credentials` action:
+------------------------------------------------------
+- name: Configure AWS credentials from OIDC
+  uses: aws-actions/configure-aws-credentials@v3
+  with:
+    role-to-assume: arn:aws:iam::<account-id>:role/github-oidc-role
+    aws-region: us-east-1
+------------------------------------------------------
+
+   |
+   | [JWT token + Role ARN]  🔁 sent to AWS STS
+   |
+   V
+AWS IAM:
+ ✅ Verify token validity
+ ✅ Check issuer (`https://token.actions.githubusercontent.com`)
+ ✅ Check audience (`sts.amazonaws.com`)
+ ✅ Match `sub` in trust policy (`repo:my-user/my-repo:ref:refs/heads/main`)
+   |
+   |
+👉 IAM Role — Trust Policy (JSON)
+------------------------------------------------------
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:sub": "repo:my-user/my-repo:ref:refs/heads/main"
+        }
+      }
+    }
+  ]
+}
+------------------------------------------------------
+
+👉 IAM Role — Permissions Policy (attached separately)
+------------------------------------------------------
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+------------------------------------------------------
+
+   |
+   | [Temporary AWS Credentials returned to GitHub Actions]
+   V
+GitHub Action uses AWS access for deployment  
+👉 Workflow step now has AWS access, e.g.:
+------------------------------------------------------
+- name: Upload to S3
+  run: aws s3 cp ./my-app.zip s3://my-bucket/
+------------------------------------------------------

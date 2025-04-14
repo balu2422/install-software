@@ -1,0 +1,606 @@
+AWS - IAM FAQ
+-------------
+Q. What is AWS Identity and Access Management (IAM)?
+
+AWS Identity and Access Management (IAM) is a web service that helps you securely control access to AWS resources.
+With IAM, we can manage permissions that control which AWS resources users can access.
+
+Basic Example Use Case: we have a developer who needs access to an S3 bucket to store and retrieve files.
+You can create an IAM user for the developer, create a policy that grants the necessary permissions, and attach the policy to the user.
+
+
+Creating  IAM User:
+> aws iam create-user --user-name Developer1
+---------------------------------
+vi s3-read-write-policy.json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::example-bucket/*"
+      ]
+    }
+  ]
+}
+-------------------------------------
+Create the Policy:
+>aws iam create-policy --policy-name S3ReadWritePolicy --policy-document file://s3-read-write-policy.json
+
+Attach the Policy to the User:
+> aws iam attach-user-policy --user-name Developer1 --policy-arn arn:aws:iam::123456789012:policy/S3ReadWritePolicy
+--------------------------------------------------------------------------------------------------------------------
+
+Q. How does IAM work and what can I do with it?
+
+----> IAM provides authentication and authorization for AWS services.
+Detailed explanation of how IAM works:
+"Authentication"
+Authentication is the process of verifying the identity of a user or service. In IAM, authentication happens when a user or 
+service attempts to access AWS resources.
+
+This is typically done using credentials such as:
+Access keys: Used for programmatic access via the AWS CLI 
+Password: Used for access via the AWS Management Console.
+Multi-Factor Authentication (MFA): Adds an extra layer of security by requiring a second form of authentication.
+
+Example: When a user logs into the AWS Management Console, they enter their username and password. If MFA is enabled, 
+they also enter a code from their MFA device.
+
+"Authorization"
+Authorization is the process of determining whether an authenticated user or service has permission to perform specific actions on AWS resources. 
+IAM uses policies to manage authorization. Policies are JSON documents that define permissions for actions on AWS resources.
+
+Example: When a user attempts to list objects in an S3 bucket, IAM checks the policies attached to the user (or the user's group or role) to see if the s3:ListBucket action is allowed on the specified bucket.
+
+How IAM Works in Practice
+-----------------------
+User Authentication:
+A user logs into the AWS Management Console using their username and password.
+If MFA is enabled, the user also enters a code from their MFA device.
+
+Request Authorization:
+The user attempts to perform an action, such as listing objects in an S3 bucket.
+IAM evaluates the policies attached to the user, group, or role to determine if the action is allowed.
+Policies are evaluated in the following order:
+Explicit Deny: If any policy explicitly denies the action, the request is denied.
+Explicit Allow: If any policy explicitly allows the action, the request is allowed.
+Default Deny: If no policies explicitly allow the action, the request is denied.
+Policy Evaluation:
+
+Policies are JSON documents that define permissions. example of a policy that allows listing and getting objects from a specific S3 bucket:
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::example-bucket/*"
+      ]
+    }
+  ]
+}
+Example Use Case: Creating and Managing IAM Policies Using AWS CLI
+Create IAM User:
+
+aws iam create-user --user-name Developer1
+vi s3-read-write-policy.json with the policy definition.
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::example-bucket/*"
+      ]
+    }
+  ]
+}
+Create the Policy:
+aws iam create-policy --policy-name S3ReadWritePolicy --policy-document file://s3-read-write-policy.json
+
+Attach the Policy to the User:
+aws iam attach-user-policy --user-name Developer1 --policy-arn arn:aws:iam::123456789012:policy/S3ReadWritePolicy
+------------------------------------------------------------------------------------
+Q. What are least-privilege permissions?
+
+vi eks-read-only-policy.json : example, to allow read-only access to the cluster named my-cluster:
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "eks:DescribeCluster",
+        "eks:ListClusters"
+      ],
+      "Resource": "arn:aws:eks:us-west-2:123456789012:cluster/my-cluster"
+    }
+  ]
+}
+
+Create the Policy: Use the AWS CLI to create the policy:
+aws iam create-policy --policy-name EKSReadOnlyPolicy --policy-document file://eks-read-only-policy.json
+
+Attach the Policy to a User: Attach the policy to a specific user:
+aws iam attach-user-policy --user-name Gowtham --policy-arn arn:aws:iam::123456789012:policy/EKSReadOnlyPolicy
+----------------------------------------------------------------------
+
+Q. What are IAM policies?
+
+IAM policies are JSON documents that define permissions for actions on AWS resources. 
+Policies can be attached to users, groups, or roles to specify what actions are allowed or denied.
+---------------------------------
+Q. Why should I use IAM roles?
+
+IAM roles provide a way to access AWS resources using temporary security credentials. 
+They are not tied to specific users or groups but can be assumed by trusted entities such as AWS services or external identity providers. 
+
+key reasons to use IAM roles:
+Temporary Credentials: Reduce the risk of long-term credential exposure by using temporary security credentials.
+Cross-Account Access: Enable secure access to resources across different AWS accounts.
+Least-Privilege Principle: Configure roles with specific permissions to ensure minimal access necessary for tasks.
+
+-------------------------------------------------------
+Q. How to create policies using Create IAM policies (AWS CLI)?
+
+vi policy.json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": "*"
+    }
+  ]
+}
+aws iam create-policy --policy-name MyS3Policy --policy-document file://policy.json
+
+user attach
+aws iam attach-user-policy --user-name MyUser --policy-arn arn:aws:iam::123456789012:policy/MyS3Policy
+
+role attach
+aws iam attach-role-policy --role-name MyRole --policy-arn arn:aws:iam::123456789012:policy/MyS3Policy
+--------------------------------------------------
+Q. what types of policies?
+
+
+Types of IAM Policies
+AWS Managed Policies
+Customer Managed Policies
+Inline Policies
+Service Control Policies (SCPs)
+Let's deeper into the major types of policies:
+
+1. AWS Managed Policies
+Description: AWS Managed Policies are predefined policies created and managed by AWS. 
+These policies are designed to provide permissions for common use cases and are maintained by AWS,
+ensuring they are kept up-to-date with the latest best practices and service updates.
+
+Example: AmazonS3ReadOnlyAccess is an AWS managed policy that grants read-only access to all S3 buckets.
+
+Usage: AWS Managed Policies are ideal for quickly granting common permissions without the need to create custom policies. 
+They simplify the management of permissions by providing a set of standardized policies.
+
+2. Customer Managed Policies
+Description: Customer Managed Policies are policies created and managed by the customer. 
+These policies offer more flexibility and can be tailored to specific needs. 
+Customers have full control over the policy's permissions and can update or delete the policy as needed.
+
+Example: A custom policy that grants read and write access to a specific S3 bucket.
+
+Policy Document (s3-read-write-policy.json):
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::example-bucket/*"
+      ]
+    }
+  ]
+}
+Usage: Customer Managed Policies are ideal for scenarios where specific permissions are required that are not covered by AWS Managed Policies. 
+They tailored to the organization's needs.
+
+3. Inline Policies
+Description: Inline Policies are policies that you create and embed directly into a single user, group, or role. 
+They are not reusable and are tightly coupled with the entity they are attached to. 
+Inline policies are useful for specific, tightly controlled permissions that should not be shared.
+
+Example: An inline policy that grants read-only access to a specific S3 bucket.
+
+Policy Document (s3-read-only-inline-policy.json):
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::example-bucket/*"
+      ]
+    }
+  ]
+}
+Usage: Inline Policies are ideal for granting specific permissions to a single user, group, or role. 
+They are useful when the permissions should not be shared or reused across multiple entities.
+
+4. Service Control Policies (SCPs)
+Description: Service Control Policies (SCPs) are used in AWS Organizations to manage permissions across multiple AWS accounts. 
+SCPs define the maximum permissions for accounts within an organization. 
+They do not grant permissions themselves but set boundaries on what actions can be allowed by other policies.
+
+Example: An SCP that restricts the use of EC2 instances in a specific region.
+
+Policy Document (scp-restrict-ec2-region.json):
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Deny",
+      "Action": "ec2:*",
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:RequestedRegion": "us-west-2"
+        }
+      }
+    }
+  ]
+}
+Usage: SCPs are ideal for organizations that need to enforce compliance and security policies across multiple AWS accounts. 
+They provide a way to centrally manage and restrict permissions at the organizational level.
+
+---------------------------------------------------------------------------------
+Q. What are the Best Practices?
+
+Enable Multi-Factor Authentication (MFA):
+Add an extra layer of security by requiring MFA for all users, especially for privileged accounts.
+Example: Require MFA for IAM users accessing the AWS Management Console.
+
+Use IAM Roles for Applications:
+Use IAM roles instead of long-term access keys for applications running on AWS services like EC2, Lambda, and ECS.
+Example: Assign an IAM role to an EC2 instance to allow it to access S3 buckets without storing credentials on the instance.
+
+Grant Least Privilege:
+Grant only the permissions required to perform a task, and no more.
+Example: Create a policy that allows a user to only read from a specific S3 bucket, rather than granting full S3 access.
+
+Rotate Credentials Regularly:
+Regularly rotate IAM user credentials, including passwords and access keys, to reduce the risk of compromised credentials.
+Example: Implement a policy to rotate access keys every 90 days.
+
+Use IAM Groups to Assign Permissions:
+Use IAM groups to manage permissions for multiple users efficiently.
+Example: Create a group for developers and attach policies that grant the necessary permissions for development tasks.
+--------------------------------------------------------------------------
+Q. Which policy attached to role to perform ECS task?
+
+Task Execution Role:
+Why Needed: This role allows the ECS service to do things like pull container images from Amazon ECR and send logs to CloudWatch on your behalf.
+Policy: Attach the AmazonECSTaskExecutionRolePolicy to this role.
+
+Task Role:
+Why Needed: This role gives permissions to the containers running in your task to access other AWS services (like S3, DynamoDB) 
+that your application needs.
+Policy: Create a custom policy based on what your application needs to do.
+-----------------------------------------------------------------------------------
+Q. How to assign User/Admin IAM policy for ECS management?
+
+Go to the IAM Console.
+
+Select Users or Roles:
+Choose the user or role you want to assign the policy to.
+
+Attach Policies:
+Click on the "Add permissions" button and then "Attach policies directly".
+Search for the managed policies you need and attach them.
+Key Policies to Attach
+
+AmazonECS_FullAccess:
+Why Needed: Grants full administrative access to manage all ECS resources, including clusters, services, tasks, and task definitions.
+Policy: Attach the AmazonECS_FullAccess managed policy.
+
+AmazonEC2ContainerRegistryFullAccess:
+Why Needed: Grants full access to manage Amazon ECR resources, which is necessary for pulling and pushing container images.
+Policy: Attach the AmazonEC2ContainerRegistryFullAccess managed policy.
+
+AmazonECS_ReadOnlyAccess (Optional):
+Why Needed: Grants read-only access to ECS resources. Useful for users who need to view ECS resources and configurations without making any changes.
+Policy: Attach the AmazonECS_ReadOnlyAccess managed policy.
+------------------------------------------------------------------------
+
+Q. If you're creating and managing AWS EKS service which IAM policies that allow you.
+
+
+Policies Needed for Managing AWS EKS
+
+AmazonEKSClusterPolicy
+Why Needed: This policy grants permissions to create and manage EKS clusters. 
+It allows EKS to interact with other AWS services on your behalf to manage resources like Elastic Load Balancers (ELBs) and related components.
+
+AmazonEKSServicePolicy
+Why Needed: This policy grants permissions for EKS to manage various AWS services required for running Kubernetes workloads. 
+It includes permissions to create and manage network interfaces, security groups, and other necessary resources.
+
+AmazonEKS_CNI_Policy
+Why Needed: This policy grants permissions for the Amazon VPC CNI plugin to manage network interfaces and IP addresses for pods running in the EKS cluster. 
+It ensures that the networking components of your Kubernetes workloads are properly managed.
+
+------------------------------------
+Q. What is Trust policy?
+
+Create the Role:
+You create an IAM role named EC2AccessRole.
+
+Attach a policy to this role that grants permissions to access S3.
+
+Define the Trust Policy:
+You define the trust policy that allows EC2 to assume the EC2AccessRole.
+Launch an EC2 Instance:
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+When you launch an EC2 instance, you specify the EC2AccessRole for the instance.
+The EC2 instance can now use the permissions defined in the EC2AccessRole to access S3.
+----------------------------------------------------
+Q. Can you restruct IAM user access by IP address?
+
+
+Yes, you can restrict IAM user access by IP address using IAM policies. 
+This is done by specifying conditions in the policy that limit access based on the IP address from which the request originates.
+
+Here’s an example IAM policy that allows access to AWS resources only from the specific IP address 192.168.1.1 and the IP range 203.0.113.0/24:
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": "*",
+      "Condition": {
+        "IpAddress": {
+          "aws:SourceIp": [
+            "192.168.1.1",
+            "203.0.113.0/24"
+          ]
+        }
+      }
+    }
+  ]
+}
+
+Explanation
+Effect: "Deny"
+
+This specifies that the policy allows access.
+Action: "*"
+
+This specifies that the policy applies to all actions. You can replace "*" with specific actions if needed.
+Resource: "*"
+
+This specifies that the policy applies to all resources. You can replace "*" with specific resources if needed.
+** access based on the IP address.
+
+aws:SourceIp: Specifies the allowed IP addresses or ranges. In this example, access is allowed only from the IP address 192.168.1.1 and the IP range 203.0.113.0/24.
+Steps to Apply the Policy
+Open the IAM Console:
+
+Navigate to the IAM Console.
+
+Create a New Policy:
+In the navigation pane, choose "Policies".
+Click on the "Create policy" button.
+
+Define the Policy:
+Choose the "JSON" tab.
+Enter the JSON policy document (as shown above).
+Review and Create the Policy:
+
+Click on "Next: Tags" (optional to add tags).
+Click on "Next: Review".
+Enter a name and description for the policy, such as RestrictAccessByIP.
+Click on "Create policy".
+Attach the Policy to a User or Role:
+
+In the navigation pane, choose "Users" or "Roles".
+
+Select the user or role to which you want to attach the policy.
+Click on the "Add permissions" button.
+Choose "Attach policies directly".
+Search for the policy you just created (RestrictAccessByIP).
+Select the policy and click "Next: Review".
+Click on "Add permissions".
+
+------------------
+Q. How to audit IAM changes?
+
+Auditing IAM (Identity and Access Management) changes involves reviewing and analyzing modifications made to user permissions, roles, 
+and policies within an organization's IAM system. 
+This process ensures that access controls are properly managed and that any changes comply with security policies and regulations.
+
+Set Up CloudWatch Alarms:
+Purpose: Get real-time notifications for specific IAM changes.
+
+Steps:
+Open the Amazon CloudWatch Console.
+Create a new alarm based on CloudTrail logs.
+Set up filters to trigger the alarm for specific IAM actions.
+Configure notifications (e.g., email, SMS) to alert you when the alarm is triggered.
+
+----------------------------
+Q. How Would you restrict an IAM role to access S3 only if MFA is enabled and the request comes from a specific VPC?
+
+restrict an IAM role to access S3 only if MFA (Multi-Factor Authentication) is enabled and the request comes from a specific VPC (Virtual Private Cloud), 
+you can use an IAM policy with specific conditions. Here’s an example of how you can achieve this:
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "s3:*",
+            "Resource": "*",
+            "Condition": {
+                "Bool": {
+                    "aws:MultiFactorAuthPresent": "true"
+                },
+                "StringEquals": {
+                    "aws:sourceVpc": "vpc-12345678"
+                }
+            }
+        }
+    ]
+}
+
+Deny Statement: This denies all S3 actions if MFA is not present or if the request does not come from the specified VPC (vpc-12345678).
+
+Allow Statement: This allows all S3 actions only if MFA is present and the request comes from the specified VPC.
+
+Q. What IAM roles typically used for each of these AWS services like S3, ECS, EKS, Lambda, ALB and EC2 with example?
+
+Amazon S3 (Simple Storage Service)
+Role Name: S3AccessRole Example Policy:
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetObject",
+                "s3:PutObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::example-bucket/*"
+            ]
+        }
+    ]
+}
+2. Amazon ECS (Elastic Container Service)
+Role Name: ECSExecutionRole Example Policy:
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ecs:RunTask",
+                "ecs:StopTask",
+                "ecs:DescribeTasks"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+3. Amazon EKS (Elastic Kubernetes Service)
+Role Name: EKSClusterRole Example Policy:
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "eks:CreateCluster",
+                "eks:DescribeCluster",
+                "eks:DeleteCluster"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+4. AWS Lambda
+Role Name: LambdaExecutionRole Example Policy:
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+5. Application Load Balancer (ALB)
+Role Name: ALBAccessRole Example Policy:
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:DescribeLoadBalancers",
+                "elasticloadbalancing:DescribeTargetGroups",
+                "elasticloadbalancing:DescribeListeners"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+6. Amazon EC2 (Elastic Compute Cloud)
+Role Name: EC2InstanceRole Example Policy:
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:StartInstances",
+                "ec2:StopInstances",
+                "ec2:DescribeInstances"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

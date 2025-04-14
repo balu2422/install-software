@@ -1,0 +1,323 @@
+AWS cloudwatch:
+===============
+Q1. What is Amazon CloudWatch?
+
+Amazon CloudWatch is a monitoring and observability service provided by AWS that enables you to collect and track metrics, logs, and events for your AWS resources and applications. 
+It helps you gain insights into the performance, operational health, and resource utilization of your AWS infrastructure and applications.
+
+
+Q2. What can I use to access CloudWatch?
+
+To access Amazon CloudWatch, you can use:
+
+AWS Management Console: Web interface for easy access to CloudWatch features.
+AWS CLI: Command-line tool to manage CloudWatch resources.
+AWS SDKs: Programmatically interact with CloudWatch using SDKs for various programming languages.
+Mobile App: Monitor metrics and alarms via the CloudWatch Console Mobile App.
+CloudWatch Logs Insights: Query and analyze log data interactively using the console or CLI.
+CloudWatch Dashboards: Visualize and monitor multiple metrics on custom dashboards.
+
+AWS CLI example:
+
+aws logs start-query \
+    --log-group-name "my-log-group" \
+    --start-time 1609459200000 \
+    --end-time 1609545600000 \
+    --query-string "fields @timestamp, @message | sort @timestamp desc | limit 20"
+
+
+Q3. What is Amazon CloudWatch Logs?
+
+Amazon CloudWatch Logs is a feature of Amazon CloudWatch that enables you to collect, monitor, and store log files from your AWS resources
+applications, and services in real-time.
+
+Use Cases:
+
+Monitor logs from web servers or applications to identify performance issues.
+Set up real-time alerts for specific error patterns in logs.
+Capture and analyze logs from AWS CloudTrail for user activity auditing.
+Trigger Lambda functions or notifications based on log events.
+Analyze application logs to identify bottlenecks and optimize resource usage.
+
+
+
+Q4. What access management policies can I implement for CloudWatch?
+
+For Amazon CloudWatch we can implement the following access management policies.
+
+IAM Policies: Fine-grained permissions for CloudWatch actions (e.g., viewing logs, creating alarms).
+CloudWatch Resource Policies: Grant access to specific CloudWatch resources (e.g., logs) across accounts or services.
+AWS Organizations SCPs: Control permissions across your organization to manage CloudWatch access.
+Logs Insights Permissions: Define permissions for running and managing queries on CloudWatch Logs.
+Dashboards Permissions: Control access to creating and viewing CloudWatch Dashboards.
+Alarms Permissions: Control access to managing CloudWatch Alarms.
+Logs Retention Permissions: Allow managing retention policies for CloudWatch Logs.
+CloudWatch Events Permissions: Manage permissions to create and manage CloudWatch Events rules.
+
+Below are the examples:
+
+Example IAM Policy for CloudWatch Logs (read-only access):
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams",
+        "logs:GetLogEvents"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+
+
+Example IAM Policy for CloudWatch Dashboards:
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:GetDashboard",
+        "cloudwatch:PutDashboard"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+
+
+Example IAM Policy for Alarms:
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:DescribeAlarms",
+        "cloudwatch:SetAlarmState",
+        "cloudwatch:PutMetricAlarm"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+
+
+Example IAM Policy for Log Retention:
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "logs:PutRetentionPolicy",
+      "Resource": "*"
+    }
+  ]
+}
+
+
+
+Q5. How does Amazon CloudWatch collect data?
+
+
+1. Amazon CloudWatch automatically collects metrics from many AWS services like EC2, RDS, S3, Lambda, and more. 
+   These metrics are available by default, and you can monitor things like CPU utilization, memory usage, request counts, and others.
+
+2. For logs, CloudWatch collects them from services like Lambda, EC2 instances (using the CloudWatch Logs agent), and other AWS services that generate logs
+
+3. You can send custom application or business metrics to CloudWatch using the CloudWatch API or AWS SDK.
+
+4. The CloudWatch Agent can be installed on EC2 instances or on-premises servers to collect additional metrics 
+   (e.g., disk, memory usage) and push them to CloudWatch.
+
+
+Q6. What are CloudWatch Alarms?
+
+CloudWatch Alarms are a feature of Amazon CloudWatch that allow you to monitor specific metrics(cpu, memroy, disk, network traffic) 
+logs, or events, and trigger actions when those metrics cross predefined thresholds. 
+Alarms help you automatically respond to changes in your AWS environment, enabling you to take corrective actions without manual intervention.
+
+Types of Alarms:
+
+Threshold-based Alarms: Triggered when a metric exceeds or falls below a predefined threshold.
+Anomaly Detection Alarms: Use machine learning to automatically detect deviations from normal metric patterns (e.g., unexpected spike in traffic).
+
+Usecases:
+
+To monitor resources like EC2 instances or databases to ensure they are performing within acceptable limits.
+To detect issues like high latency or slow response times in your application by monitoring metrics like request counts or error rates.
+
+
+Example:
+You could create an alarm to monitor the CPU utilization of an EC2 instance:
+
+Metric: CPU Utilization of EC2 instance.
+Threshold: If CPU utilization exceeds 80% for 5 minutes.
+Action: Send an alert via Amazon SNS to the operations team.
+State: The alarm will go into ALARM state when the threshold is breached, and the notification is sent.
+
+
+Example CLI Command to Create an Alarm:
+
+aws cloudwatch put-metric-alarm \
+  --alarm-name HighCPUUtilization \
+  --metric-name CPUUtilization \
+  --namespace AWS/EC2 \
+  --statistic Average \
+  --period 300 \
+  --threshold 80 \
+  --comparison-operator GreaterThanOrEqualToThreshold \
+  --evaluation-periods 1 \
+  --alarm-actions arn:aws:sns:us-west-2:123456789012:MyTopic \
+  --ok-actions arn:aws:sns:us-west-2:123456789012:MyTopic \
+  --unit Percent
+
+Summary of the Alarm Logic:
+
+Metric: CPU utilization of EC2 instance.
+Threshold: 80% CPU utilization.
+Trigger: The alarm will trigger if the CPU utilization is greater than or equal to 80% for a 5-minute(300sec) period.
+Alarm Actions: Send an SNS notification to the provided topic when the alarm state is triggered (CPU utilization exceeds 80%).
+OK Actions: Send a notification when the CPU utilization returns to a normal (OK) state.
+
+
+
+Q7. Can I use CloudWatch to monitor my on-premises resources?
+
+we can use Amazon CloudWatch to monitor our on-premises resources by using the CloudWatch Agent. 
+This allows us to send custom metrics and log data from your on-premises servers (or any infrastructure not hosted in AWS) to CloudWatch for centralized monitoring.
+
+Below are the steps to configure it:
+
+Install the CloudWatch Agent on your on-premises server (Linux/Windows).
+Configure the agent to collect metrics (e.g., CPU, memory, disk) and logs (e.g., system/application logs).
+The agent sends data to CloudWatch Metrics and CloudWatch Logs.
+Use CloudWatch to monitor, create alarms, and visualize data.
+
+Example for linux server:
+
+1. Install the CloudWatch Agent
+
+sudo apt-get install amazon-cloudwatch-agent
+
+2. Configure the CloudWatch Agent
+
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-config-wizard
+
+3. Start the CloudWatch Agent
+
+sudo systemctl start amazon-cloudwatch-agent
+
+4. Verify Data in CloudWatch under metrics and logs section
+
+
+
+Q8. What is CloudWatch Events?
+
+Amazon CloudWatch Events (now called Amazon EventBridge) is a fully managed service that enables you to respond to changes in your AWS environment 
+by automatically triggering actions based on specific events.
+
+Below are some examples of events:
+
+1. EC2 State Change: Trigger an SNS notification when an EC2 instance is stopped.
+2. S3 Object Created: Invoke a Lambda function when an object is uploaded to an S3 bucket.
+3. IAM Policy Change: Trigger an SNS notification on changes to IAM policies.
+4. Auto Scaling Action: Notify when an Auto Scaling group scales in or out.
+5. ECS Task State Change: Trigger a process if an ECS task fails.
+6. SNS Message Sent: Trigger a Lambda function on a specific SNS message.
+
+
+Q9. How long does CloudWatch retain data?
+
+
+Amazon CloudWatch retains data for the following durations:
+
+Metrics:
+High-resolution metrics (1-second granularity) are stored for 3 hours.
+
+Standard-resolution metrics (1-minute granularity) are stored for:
+15 days for 1-minute data.
+63 days for 5-minute data.
+455 days for 1-hour data.
+
+Logs:
+CloudWatch Logs retention can be configured by the user. By default, logs are retained indefinitely
+but you can set a retention period ranging from 1 day to 10 years.
+
+
+Alarms:
+Alarms remain active until you delete them. They don't have a data retention period but trigger based on the metrics they monitor.
+
+
+
+Q10. What are best practices for using AWS CloudWatch effectively?
+
+Set Alarms: Monitor key metrics and trigger actions.
+Use Granular Metrics: Enable high-resolution for detailed monitoring.
+Organize Logs: Create log groups and streams for better management.
+Set Retention Policies: Control log storage costs.
+Enable Detailed Monitoring: For EC2 and critical resources.
+Use Logs Insights: Analyze log data effectively.
+Monitor Custom Metrics: Track app and business-specific data.
+Automate with Events: Automate actions via CloudWatch Events.
+Tag Resources: For better tracking and cost management.
+Optimize Costs: Review metrics and logs regularly to minimize unnecessary costs.
+
+
+Q11. What are key metrics and make list for monitoring ECS, EKS, Lambda, and ALB in AWS CloudWatch like container metrics etc.
+
+
+Here are the key metrics for monitoring AWS services like ECS, EKS, Lambda, and ALB using CloudWatch:
+
+
+ECS (Elastic Container Service):
+
+1. CPUUtilization: Percentage of CPU used by the containers.
+2. MemoryUtilization: Percentage of memory used by the containers.
+3. DiskReads: Number of disk read operations.
+4. DiskWrites: Number of disk write operations.
+5. NetworkPacketsIn: Number of network packets received by the container.
+6. NetworkPacketsOut: Number of network packets sent by the container.
+7. TaskCount: Number of tasks running in the ECS service.
+8. ServiceDesiredCount: Number of tasks the ECS service wants to run.
+9. ServiceRunningCount: Number of tasks currently running in the ECS service.
+
+EKS (Elastic Kubernetes Service):
+
+1. NodeCPUUtilization: CPU usage for EKS nodes.
+2. NodeMemoryUtilization: Memory usage for EKS nodes.
+3. PodCPUUtilization: CPU usage for pods in a Kubernetes cluster.
+4. PodMemoryUtilization: Memory usage for pods in a Kubernetes cluster.
+5. PodCount: Number of pods running in the cluster.
+6. PodRestarts: Number of pod restarts.
+7. NetworkIn: Network traffic received by nodes/pods.
+8. NetworkOut: Network traffic sent from nodes/pods.
+9. DiskWriteBytes: Disk write operations.
+10.DiskReadBytes: Disk read operations.
+
+Lambda:
+
+1. Invocations: Number of times a Lambda function is invoked.
+2. Duration: Execution time of a Lambda function.
+3. Errors: Number of Lambda function errors.
+4. Throttles: Number of throttled invocations.
+5. IteratorAge: Time lag between reading an event and processing it (useful for stream-based triggers).
+6. ConcurrentExecutions: Number of Lambda executions occurring simultaneously.
+7. Success: Successful invocations of the Lambda function.
+8. ALB (Application Load Balancer):
+9. RequestCount: Total number of requests handled by the ALB.
+10.TargetResponseTime: Average response time of targets in the ALB.
+11.HealthyHostCount: Number of healthy targets in the ALB target group.
+12.UnhealthyHostCount: Number of unhealthy targets in the ALB target group.
+13.HTTPCode_ELB_5XX_Count: Number of 5XX errors generated by the ALB.
+14.HTTPCode_Target_2XX_Count: Number of 2XX responses from targets.
+15.HTTPCode_Target_4XX_Count: Number of 4XX responses from targets.
+16.ActiveConnectionCount: Number of active connections to the load balancer.
+17.NewConnectionCount: Number of new connections to the load balancer.
