@@ -1,3 +1,16 @@
+# Stage 1: Builder
+FROM node:20 AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+
+# Stage 2: Final lightweight image
+FROM node:20-slim
+WORKDIR /app
+COPY --from=builder /app .
+CMD ["node", "index.js"]
+-----------------------------------
 Verify Docker Version
 docker version
 
