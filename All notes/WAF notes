@@ -1,0 +1,63 @@
+AWS WAF is a firewall that helps protect your web applications from common threats like DDoS attacks, bad IPs, SQL injection, and bots.
+It works by letting you allow, block, or challenge incoming web traffic based on rules you set.
+
+DDoS (Distributed Denial of Service) is a type of cyber attack where hackers send too much fake traffic to your website or server to crash or slow it down.
+
+
+
+User --> WAF --> ALB --> EC2
+
+
+How AWS WAF Works – Simple Steps
+Create an IP Set
+A list of IPs you want to allow or block (e.g., block a country or a bad IP).
+
+Create Rules or Rule Groups
+Rules define what to check (e.g., block certain IPs, detect SQL injection, etc.)
+
+You can use:
+Your own rules (custom)
+AWS managed rules (ready-made protection)
+
+Choose Action in Rule
+For each rule, you can choose:
+✅ Allow – Let traffic through
+❌ Block – Stop the request
+🤖 CAPTCHA – Ask the user to prove they're human
+⏳ Count – Just monitor for now, don’t block yet
+
+Create a Web ACL (Access Control List)
+Attach your rules or rule groups
+This is the main "firewall" setting you apply to:
+CloudFront
+
+Application Load Balancer (ALB)
+
+API Gateway
+
+AppSync
+
+Attach Web ACL to your AWS resource
+
+For example, to your CloudFront distribution or ALB.
+
+🔐 Simple Example:
+You want to:
+
+Block IPs from 192.168.1.0/24
+
+Allow others
+
+Use CAPTCHA for strange patterns
+
+You will:
+
+Create IP Set for block list
+
+Create Rule: if IP in IP set → Block
+
+Create Rule: if request looks strange → CAPTCHA
+
+Add both rules to Web ACL
+
+Attach Web ACL to CloudFront or ALB
