@@ -1,0 +1,121 @@
+AWS Service Catalog lets admins create and manage a list of pre-approved AWS setups (called products).
+Users can select and launch these products easily without needing to configure everything manually.
+
+
+service catalog is like admin can create 
+
+
+-next create product in product 
+need to chose CFT or terraform.
+and product name 
+need give owner name
+
+next we give source to crate product from terraform.
+1.file upload 
+2. s3 source url
+
+version name (optional)
+
+
+support mail ,number.
+
+create product.....
+
+next 
+
+- protifilo 
+product -1
+product -2
+ like any attach user who can access that products.
+
+login as user and see products in catalog and spin up. we can able to utilise or use that product.
+
+
+
+
+
+
+
+
+
+
+
+#######################
+ AWS Service Catalog – Simple Steps & Flow
+👨‍💼 Step 1: Admin Creates the Service Catalog
+The admin (or IT team) sets everything up.
+
+📦 Step 2: Create a Product
+A Product is like a ready-made AWS setup (example: EC2 + Security Group + VPC).
+
+While creating a product:
+
+🏷️ Product Name: Give a name (e.g., "Student EC2 Lab")
+
+👤 Owner Name: Add who owns this product (e.g., "Admin" or your team name)
+
+📄 Provisioning Artifact (the actual setup):
+
+You choose either:
+
+CloudFormation Template (CFT)
+
+or Terraform Template
+
+You provide the source:
+
+Upload a .json / .yaml / .zip file
+
+Or give S3 URL where the template is stored
+
+🆔 Version Name: (optional, but good for tracking)
+
+📧 Support Info: Add contact email or phone
+
+🗂️ Step 3: Create a Portfolio
+A Portfolio is a collection of products.
+
+Example:
+
+Portfolio: "Student Lab Portfolio"
+
+Product 1: EC2 Lab
+
+Product 2: Web Server Lab
+
+Product 3: RDS MySQL Setup
+
+👥 Step 4: Share Portfolio with Users
+Admin attaches IAM Users, Roles, or Groups to the portfolio.
+
+These users will be allowed to see and launch the products.
+
+👨‍🎓 Step 5: Login as User and Use Product
+Users log in to the AWS Management Console
+
+Go to Service Catalog
+
+View the allowed products
+
+Click to launch the product
+
+The resource (like EC2) will be created as defined
+
+No need to manually configure
+
+🎯 Final Summary:
+Admin creates products using CFT or Terraform
+
+Groups them into a portfolio
+
+Shares with users
+
+Users launch pre-approved AWS setups safely
+
+
+
+
+
+
+
+
