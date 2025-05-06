@@ -460,4 +460,71 @@ Full Control: Grants all permissions, including the ability to manage permission
 5xx: Server-side errors (e.g., 500 Internal Server Error, 503 Service Unavailable), indicating issues with the server or service
 
 
+bucket policy
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PublicReadGetObject",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::balu/*"
+    }
+  ]
+}
+
+----------
+trust
+---
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::123456789012:root"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+
+-----
+policy
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListBucket",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::balu"
+    },
+-----------------
+bucky lifecycle
+
+{
+  "Rules": [
+    {
+      "ID": "LogArchiveRule",
+      "Prefix": "logs/",
+      "Status": "Enabled",
+      "Transitions": [
+        {
+          "Days": 30,
+          "StorageClass": "GLACIER"
+        }
+      ],
+      "Expiration": {
+        "Days": 365
+      }
+    }
+  ]
+}
+----------------------
+
+
+
 
