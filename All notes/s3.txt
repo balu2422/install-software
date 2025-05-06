@@ -524,6 +524,8 @@ bucky lifecycle
   ]
 }
 ----------------------
+imp***
+acl is like when we need one bucket public we use acl. for bucket based ojject based we use  bucket policy and and we have 20 bucket that time we use iam policy right
 
 
 
