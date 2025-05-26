@@ -1,0 +1,57 @@
+Defination: 
+=============
+AWS Glue is a fully managed cloud service that helps you discover, prepare, and transform data for analytics and reporting. 
+It automates the process of extracting data from sources like databases (e.g., RDS), catalogs metadata with crawlers, and runs
+ETL (Extract, Transform, Load) jobs to clean and convert data. The processed data is then stored in destinations such as Amazon 
+S3 or loaded into data warehouses like Amazon Redshift.This enables businesses to easily analyze data, generate insights, and 
+make data-driven decisions using tools like Power BI.
+-------------------------------------------------------------------------------------------
+Customer places order on website/app
+          ↓
+Order data stored in RDS (source database)
+          ↓
+1. Create Glue Database
+          ↓
+2. Create Glue Connection (for RDS/Redshift/JDBC sources)
+          ↓
+3. Create & Run Crawler
+     - Uses Glue Connection (for RDS/Redshift)
+     - Scans source schema & data
+          ↓
+4. Tables Created/Updated in Glue Data Catalog
+          ↓
+5. Create ETL Job in Glue Studio or Glue Console
+          ↓
+6. Specify Data Source as Catalog Table (linked via Glue Connection)
+          ↓
+7. Apply Transformations
+     - Filter, map, join, schema conversion, clean data
+          ↓
+8. Specify Data Target/Destination (S3, Redshift, etc.)
+          ↓
+9. Write Output Data in Desired Format (CSV, Parquet, JSON, etc.)
+          ↓
+10. (Optional) Schedule or Trigger ETL Job
+     - Using Glue workflows, AWS EventBridge, Lambda triggers
+          ↓
+11. (Optional) Monitor ETL Job Runs
+     - Using CloudWatch Logs, Glue Console
+          ↓
+Amazon Redshift loads data from S3 using COPY command
+          ↓
+Power BI connects to Redshift for visualization
+          ↓
+Business users analyze sales, customer trends, etc.
+          ↓
+**Decisions Made:**
+    - Identify top-selling products and focus marketing
+    - Optimize inventory by city or region
+    - Forecast demand to plan supply chain better
+    - Detect underperforming products to discontinue or improve
+    - Adjust pricing strategies based on sales trends
+          ↓
+**Benefits Achieved:**
+    - Increased sales and revenue
+    - Reduced inventory costs and waste
+    - Improved customer satisfaction through better product availability
+    - Data-driven strategies lead to competitive advantage
