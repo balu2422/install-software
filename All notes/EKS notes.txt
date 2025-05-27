@@ -1,3 +1,108 @@
+✅ PART 1: Summary — Why and When We Use ServiceAccount
+🎯 What is a ServiceAccount?
+A Kubernetes identity used by Pods (apps) to access the Kubernetes API securely.
+
+Like a "user badge" for a non-human (application) inside the cluster.
+
+🧰 Where is it used?
+For apps that need to:
+
+List pods
+
+Read ConfigMaps
+
+Watch events
+
+Scale workloads
+
+Apply YAMLs (like ArgoCD, Jenkins)
+
+✅ Why?
+You don’t put IAM users or kubeconfig inside apps
+
+Kubernetes injects a token into the pod from the ServiceAccount
+
+You define Role/ClusterRole + Binding to give required permissions
+
+✨ Final Deployment Must Include:
+yaml
+Copy
+Edit
+spec:
+  serviceAccountName: myapp-sa  # attach it to the Pod/Deployment
+✅ PART 2: IAM User Access (Human User) — How to Connect to EKS
+🎯 Goal:
+Allow an IAM User (e.g. keerthi@yourcompany.com) to access EKS with kubectl
+
+📂 Step-by-step:
+🔹 1. Admin Maps User in aws-auth ConfigMap:
+Run:
+
+bash
+Copy
+Edit
+kubectl edit configmap aws-auth -n kube-system
+Then add the user:
+
+yaml
+Copy
+Edit
+mapUsers:
+  - userarn: arn:aws:iam::111122223333:user/keerthi
+    username: keerthi
+    groups:
+      - system:masters   # or a custom group with limited access
+✅ This allows IAM user Keerthi to connect to the cluster.
+
+🔹 2. IAM User Uses aws configure:
+On her laptop, Keerthi runs:
+
+bash
+Copy
+Edit
+aws configure
+Provides:
+
+Access key
+
+Secret key
+
+Region
+
+✅ This allows her AWS CLI to authenticate.
+
+🔹 3. Generate kubeconfig for EKS:
+Keerthi runs:
+
+bash
+Copy
+Edit
+aws eks update-kubeconfig --region <region> --name <cluster-name>
+This creates or updates her local ~/.kube/config with EKS cluster info and token plugin:
+
+yaml
+Copy
+Edit
+users:
+- name: arn:aws:iam::111122223333:user/keerthi
+  user:
+    exec:
+      apiVersion: "client.authentication.k8s.io/v1beta1"
+      command: aws
+      args:
+        - "eks"
+        - "get-token"
+        - "--region"
+        - "<region>"
+        - "--cluster-name"
+        - "<cluster-name>"
+✅ Now kubectl get pods works — only if permissions are granted via RBAC or system:masters
+
+🧠 Summary Table
+For	Identity Type	How it connects	Permissions given via
+Human User	IAM User	aws configure + update-kubeconfig	aws-auth + RBAC
+App inside Pod	ServiceAccount	Mentioned in Deployment.spec.serviceAccountName	RoleBinding or ClusterRoleBinding
+--------------------------------------------------------------------
 What is Amazon EKS?
 Amazon Elastic Kubernetes Service (Amazon EKS) is a managed service that simplifies running Kubernetes on AWS without needing to install and operate 
 your own Kubernetes control plane or nodes. It automates key tasks such as patching, node provisioning, and scaling, allowing you to focus on building 
