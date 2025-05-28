@@ -1,0 +1,86 @@
+🔷 1. What is RDS?
+✅ Definition:
+Amazon RDS (Relational Database Service) is a service that helps you create and manage SQL-based databases like:
+
+MySQL
+PostgreSQL
+SQL Server
+MariaDB
+Oracle
+Amazon Aurora
+RDS stores data in tables (rows & columns) — like an Excel sheet.
+
+🛠️ Use Cases:
+Banking systems
+E-commerce websites
+Login systems
+Billing and invoices
+Applications with relationships between data (like Users → Orders)
+
+🎯 Benefits:
+Uses SQL (structured queries)
+Data is structured and organized
+Easy to use if you know MySQL or PostgreSQL
+RDS handles backups, updates, and scaling
+
+🔶 2. What is DynamoDB?
+✅ Definition:
+Amazon DynamoDB is a NoSQL database service. It stores data in a flexible, key-value format, like a big dictionary.
+There are no tables with fixed columns. You just store whatever data you want per item (row).
+
+🛠️ Use Cases:
+Shopping cart sessions
+IoT data (like temperature sensors)
+Gaming leaderboards
+Real-time chat apps
+High-speed mobile apps
+
+🎯 Benefits:
+Very fast performance (even with millions of records)
+Automatically scales up and down
+No need to define tables or structure
+Fully managed — no servers or patching
+
+🔄 RDS vs DynamoDB – Simple Comparison Table
+Feature	RDS (Relational)	DynamoDB (NoSQL)
+Data Structure	Tables with rows & columns	Key-value pairs / JSON documents
+Query Language	SQL	No SQL (uses AWS SDK or CLI)
+Schema	Fixed (pre-defined columns)	Flexible (any format)
+Use Cases	Banking, ERP, E-commerce apps	IoT, chat apps, real-time games
+Speed	Slower for large scale	Super fast (millisecond latency)
+Scaling	Manual or auto with Aurora	Automatic scaling
+Learning Curve	Easier if you know SQL	Easier for developers/coders
+Relationships	Supports joins and relations	No joins or relations
+Backup & Restore	Automated by AWS	Automated by AWS
+Example Format	SELECT * FROM users;	{"user_id": "123", "name": "Balu"}
+
+🧠 Simple Example
+RDS (MySQL):
+You have:
+
+text
+Copy
+Edit
+Users Table
+-----------
+id | name  | email
+-------------------
+1  | Balu  | balu@example.com
+Query:
+
+sql
+Copy
+Edit
+SELECT name FROM users WHERE email='balu@example.com';
+DynamoDB:
+You store:
+
+json
+Copy
+Edit
+{
+  "user_id": "1",
+  "name": "Balu",
+  "email": "balu@example.com"
+}
+You fetch using user_id.
