@@ -1,0 +1,14 @@
+
+
+
+vpc 2pub -2 avlzone-asso-public- under this 
+eks cluster 
+nodepoool 2 nodes
+addon -kubecni, coredns, (efs, ebs,ingress )
+
+ec2 -(EAWS CLI, KUBCTL, eks)
+1.direct apply
+helm charts
+3. using helm agrcoccd.
+
+
