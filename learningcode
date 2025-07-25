@@ -1,0 +1,672 @@
+
+# import modules and utilities
+import os
+import ast
+import sys
+import json
+import boto3
+import base64
+import fnmatch
+import logging
+import re
+from datetime import datetime
+from boto3.dynamodb.conditions import Key
+from botocore.exceptions import ClientError
+
+# define s3 client object
+s3 = boto3.client('s3')
+
+logger = logging.getLogger()
+# by default, it attaches the error log group handler as well hence removing
+# the all handlers and making it a blank logger
+for handler in logger.handlers:
+    logger.removeHandler(handler)
+# creating new handler for logger
+logger.setLevel(logging.INFO)
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s: %(levelname)s : %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
+
+def lambda_handler(event, context):
+    # trigger event
+    logger.info(f'Trigger event: \n{event}')
+
+    # define the global variables
+    global pro_log_tab, job_cnf_tab, dynamodb, job_nm, pro_id, job_run_id, \
+        job_nm, job_strt_time, src_nm, aws_region, fl_grp_id, load_id, job_id
+
+    # fetch values from event trigger json
+    fl_grp_id = event['fileGroupID']
+    src_nm = event['sourceSystemName']
+    load_id = event['lng_loadId']
+
+    # get aws run region
+    aws_region = os.environ['AWS_REGION']
+    # define dynamodb client object
+    dynamodb = boto3.resource("dynamodb", aws_region)
+    # dynamodb table names
+    pro_log_tab = 'bay-modeln-process-log-table'
+    pro_cng_tab = "bay-modeln-process-config-table"
+    job_cnf_tab = 'bay-modeln-job-config-table'
+    src_metadata_tab = 'bay-modeln-source-metadata-table'
+
+    # fetch & initialize common arguments
+    job_nm = context.function_name
+    job_run_id = context.log_stream_name
+    logger.info(f'Lambda aws request id: {context.aws_request_id}')
+    job_strt_time = datetime.utcnow()
+    pro_id = fl_grp_id + '_' + src_nm
+
+    # fetch job id from job configs
+    job_id = fetch_job_id()
+
+    # fetch from common process configs
+    pro_response = getInfo(
+        dynamodb_tab=pro_cng_tab,
+        pass_val_PPK='1', pass_val_PSK='common_config',
+        col_PPK='fileGroupID', col_PSK='sourceSystemName')[0]
+    src_bkt = pro_response['landingBucket']
+
+    # fetch from fgi process configs
+    pro_config_dict = getInfo(
+        dynamodb_tab=pro_cng_tab,
+        pass_val_PPK=fl_grp_id, pass_val_PSK=src_nm,
+        col_PPK='fileGroupID', col_PSK='sourceSystemName')[0]
+    src_file_path = clean_s3_key(pro_config_dict['sftpPath'])
+    dest_file_path = clean_s3_key(pro_config_dict['lng_file_path'])
+    file_type = pro_config_dict['filetype']
+    sftp_flag_file = pro_config_dict.get('sftp_flag_file', 0)
+    extracted_pattern = ''
+    for entity in pro_config_dict.get('entityList', []):
+        for mapping in entity.get('fileEntityMapping', []):
+            extracted_pattern = mapping.get('extractedFileName', '')
+            if extracted_pattern:
+                break
+        if extracted_pattern:
+            break
+
+    logger.info(f"Extracted pattern: {extracted_pattern}")
+
+    # Create flag file name from pattern
+    base_name = re.sub(r'[_\-]?[*?].*$', '', extracted_pattern)
+    flag_file_name = f"{base_name}.txt"
+    flag_file_key = f"USRMT/{src_file_path}/{flag_file_name}"
+
+    # Step 1: Delete flag file if it exists
+    if sftp_flag_file == 1:
+        try:
+            s3.head_object(Bucket=src_bkt, Key=flag_file_key)
+            s3.delete_object(Bucket=src_bkt, Key=flag_file_key)
+            logger.info(f"Deleted existing flag file: {flag_file_key}")
+        except s3.exceptions.ClientError as e:
+
+            logger.info(f"No flag file to delete: {flag_file_key}")
+
+    try:
+        # list direct s3 objects in the prefix
+        response = s3.list_objects_v2(
+            Bucket=src_bkt, Prefix=f"USRMT/{src_file_path}/", Delimiter='/')
+
+    except Exception as e:
+        error_message = \
+            f"Job Failed while listing objects in Landing S3 bucket - {e}]"
+        raise_exception_fn(
+            error_msg=error_message, fgi=fl_grp_id, load_id=load_id,
+            job_id=job_id, landing_bkt=src_bkt,
+            exception_prefix='Failure in S3 list')
+
+    # if s3 prefix doesnt have any files
+    if 'Contents' not in response:
+        s3_file_check_flag = True
+    else:
+        s3_file_check_flag = True
+        # iterate through  contents
+        for obj in response['Contents']:
+            # set flag as false if object key is file and not folder
+            if not obj['Key'].endswith('/'):
+                s3_file_check_flag = False
+
+    # based on the flag value, add s3_file_check_flag to event and exit
+    if s3_file_check_flag:
+        logger.info(f"Job Skipped as no files found in the specified " \
+                    f"path: USRMT/{src_file_path} in Landing Bucket")
+
+        # add s3_file_check_flag to even
+        event['s3_file_check_flag'] = 1
+        return event
+
+    matching_files_dict = dict()
+    if pro_config_dict['entityList']:
+        try:
+            entity_list = pro_config_dict.get('entityList', [])
+            for entity in entity_list:
+                file_entity_mapping_list = entity.get('fileEntityMapping', [])
+                for mapping in file_entity_mapping_list:
+                    act_cd = getAttrib(
+                        dynomodb_tab=src_metadata_tab,
+                        fet_obj='entityStatus',
+                        pass_val=f"{fl_grp_id}_{mapping['entityName']}",
+                        col_obj='sourceMetadataID')
+
+                    if ''.join(act_cd) == '1':
+                        matching_files = []
+                        entity_name = mapping['entityName']
+                        extracted_pattern = mapping['extractedFileName']
+                        logger.info(
+                            f"Processing entity: {entity_name} with "
+                            f"file pattern: {extracted_pattern}")
+
+                        # iterate through  contents
+                        for content in response['Contents']:
+                            # fetch file key
+                            key = content['Key']
+                            # get file name from key
+                            filename = os.path.basename(key)
+                            # check for file name pattern match
+                            pattern_match = fnmatch.fnmatch(
+                                filename, extracted_pattern)
+                            # check for file type match
+                            file_type_match = \
+                                validate_file_type(filename, file_type)
+
+                            logger.info(
+                                f"Checking key: {key} - "
+                                f"Pattern match: {pattern_match}, "
+                                f"File type match: {file_type_match}")
+
+                            # if file name pattern & file type matches
+                            if pattern_match and file_type_match:
+                                matching_files.append(key)
+
+                        # matching file list is empty
+                        if not matching_files:
+                            logger.info(
+                                f"No files matching pattern "
+                                f"{extracted_pattern} with type "
+                                f"{file_type} found in the landing "
+                                f"bucket.")
+
+                        # add matching file dict with key as pattern & value
+                        # as matching file key list
+                        else:
+                            matching_files_dict[extracted_pattern] = \
+                                matching_files
+
+        except Exception as e:
+            error_message = "Error processing entities: " + str(e)
+            raise_exception_fn(
+                error_msg=error_message, fgi=fl_grp_id, load_id=load_id,
+                job_id=job_id, landing_bkt=src_bkt,
+                exception_prefix='Error processing entities: ')
+
+        # if matching file dict is empty
+        if not matching_files_dict:
+            error_message = \
+                "No files matching the configured patterns for entities"
+
+            raise_exception_fn(
+                error_msg=error_message, fgi=fl_grp_id,
+                load_id=load_id, job_id=job_id,
+                landing_bkt=src_bkt,
+                exception_prefix='Failure no matching files')
+
+        # Step 3: Archive existing files in destination
+        try:
+            archiving_start_time = datetime.utcnow()
+            Landing_bucket_response = s3.list_objects_v2(
+                Bucket=src_bkt,
+                Prefix=f"inbound/{dest_file_path}")
+            if 'Contents' in Landing_bucket_response \
+                    and Landing_bucket_response['Contents']:
+                move_files_to_archive(
+                    src_bkt, f"inbound/{dest_file_path}",
+                    f"inbound/archive/{dest_file_path}",
+                    load_id)
+            else:
+                logger.info("Skipping archiving as no files "
+                            "are present in the Landing bucket.")
+
+            archiving_time = getTimeDiff(
+                archiving_start_time, datetime.utcnow())
+            logger.info(
+                f"Archiving took {archiving_time} seconds")
+
+        except Exception as e:
+            error_message = f"Error during archiving: {e}"
+            raise_exception_fn(
+                error_msg=error_message, fgi=fl_grp_id,
+                load_id=load_id,
+                job_id=job_id, landing_bkt=src_bkt,
+                exception_prefix='Error during archive')
+
+        # Step 4 : move the matching files from source path to inbound
+        try:
+            for pattern, matching_files_list in matching_files_dict.items():
+                for full_key in matching_files_list:
+                    filename = os.path.basename(full_key)
+                    lng_file_location = f"s3://{src_bkt}/{full_key}"
+                    logger.info(f"lng_file_location: {lng_file_location}")
+
+                    file_copy_start_time = datetime.utcnow()
+                    copy_source = {'Bucket': src_bkt, 'Key': full_key}
+                    s3.copy_object(
+                        CopySource=copy_source, Bucket=src_bkt,
+                        Key=f"inbound/{dest_file_path}/{filename}")
+                    logger.info(f"File {filename} moved to Landing bucket.")
+
+                    logger.info("deleting file from source path")
+                    s3.delete_object(Bucket=src_bkt, Key=full_key)
+                    logger.info(
+                        f"Deleted file {filename} from source path")
+                    delete_time = getTimeDiff(
+                        file_copy_start_time, datetime.utcnow())
+                    logger.info(
+                        f"File copy & delete took {delete_time} seconds")
+
+        except Exception as e:
+            error_message = \
+                f"Error copying or deleting file: {e}"
+            raise_exception_fn(
+                error_msg=error_message, fgi=fl_grp_id,
+                load_id=load_id,
+                job_id=job_id, landing_bkt=src_bkt,
+                exception_prefix=
+                'Error in file copy/delete')
+            # Step 5: Place new flag file with "Flag File" content
+        if sftp_flag_file == 1:
+            try:
+                s3.put_object(
+                    Bucket=src_bkt,
+                    Key=flag_file_key,
+                    Body="Flag File",
+                    ContentType="text/plain"
+                )
+                logger.info(f"Placed new flag file at: {flag_file_key}")
+            except Exception as e:
+                raise_exception_fn(
+                    error_msg=f"Error placing flag file: {e}",
+                    fgi=fl_grp_id, load_id=load_id,
+                    job_id=job_id, landing_bkt=src_bkt,
+                    exception_prefix='Flag file placement error')
+
+    else:
+        logger.info('<<<--- Entity List Not Found --->>>')
+
+    update_process_log_table(
+        job_stats='Successful', error_msg='', load_id=load_id, job_id=job_id,
+        landing_bkt=src_bkt)
+
+    event['s3_file_check_flag'] = 0
+
+    return event
+
+
+def clean_s3_key(path):
+    """
+    Clean up S3 key by removing leading slashes and ensuring no double slashes.
+    """
+    try:
+        return path.strip("/")
+
+    except Exception as e:
+        error_message = f"Error in clean_s3_key fn: {e}"
+        raise_exception_fn(
+            error_msg=error_message, fgi=fl_grp_id,
+            load_id=load_id,
+            job_id=job_id, landing_bkt='',
+            exception_prefix='Error in clean_s3_key')
+
+
+def getAttrib(dynomodb_tab, fet_obj, pass_val, col_obj):
+    """
+    returns value of (fet_obj) key from DynamoDB table (DynamoDB_tab) by using
+    primary partition key-value pair (col_obj-pass_val)
+    """
+    try:
+        table = dynamodb.Table(dynomodb_tab)
+        response = table.query(
+            ProjectionExpression=fet_obj,
+            KeyConditionExpression=Key(col_obj).eq(pass_val)
+        )
+
+        nameList = []
+        for i in response['Items']:
+            nameList.append(i[fet_obj])
+
+        while 'LastEvaluatedKey' in response:
+            response = table.query(
+                ProjectionExpression=fet_obj,
+                KeyConditionExpression=Key(col_obj).eq(pass_val))
+
+            for i in response['Items']:
+                nameList.append(i[fet_obj])
+
+        return nameList
+
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ResourceNotFoundException':
+            error_code = e.response['Error']['Code']
+            error_message = f"The table {dynomodb_tab} does not exist." \
+                            f" Error: {e.response['Error']['Message']}"
+        else:
+            error_code = 'Error in getAttrib'
+            error_message = f"Error in getAttrib fn:" \
+                            f" {e.response['Error']['Message']}"
+
+        raise_exception_fn(
+            error_msg=error_message, fgi=fl_grp_id,
+            load_id=load_id,
+            job_id=job_id, landing_bkt='',
+            exception_prefix=error_code)
+
+
+def validate_file_type(filename, valid_extension):
+    """
+    Check if the file has the correct extension.
+    """
+    try:
+        return filename.endswith(valid_extension)
+
+    except Exception as e:
+        error_message = f"Error in validate_file_type fn: {e}"
+        raise_exception_fn(
+            error_msg=error_message, fgi=fl_grp_id,
+            load_id=load_id,
+            job_id=job_id, landing_bkt='',
+            exception_prefix='Error in validate_file_type')
+
+
+def move_files_to_archive(bucket, source_path, archive_path, load_id):
+    """
+    function to move files from source path to archive path
+    :param bucket: bucket name as str
+    :param source_path: s3 source path as str
+    :param archive_path: s3 archive path as str
+    :param load_id: load id as str
+    :return:
+    """
+    try:
+        # define s3 resource object
+        s3_res = boto3.resource('s3')
+        # list s3 objects
+        response = s3.list_objects_v2(Bucket=bucket, Prefix=source_path)
+
+        # check for contents in response
+        if 'Contents' in response and response['Contents']:
+            # iterate through contents in response
+            for item in response['Contents']:
+                key = item['Key']
+                if not key.startswith(
+                        f"/modeln/archive/{source_path}") \
+                        and not key.startswith(
+                    f"/modeln/reject/{source_path}"):
+                    # get archive path
+                    new_key = \
+                        f'{archive_path}/{load_id}/{os.path.basename(key)}'
+                    copy_source = {'Bucket': bucket, 'Key': key}
+                    # copy file from s3
+                    s3_res.meta.client.copy(copy_source, bucket, new_key)
+                    logger.info(f"File archived: {new_key}")
+                    # delete file from s3
+                    s3.delete_object(Bucket=bucket, Key=key)
+
+        else:
+            logger.info("No files found in the Landing bucket to archive.")
+
+    except Exception as e:
+        error_message = f"Error in move_files_to_archive fn: {e}"
+        raise_exception_fn(
+            error_msg=error_message, fgi=fl_grp_id,
+            load_id=load_id,
+            job_id=job_id, landing_bkt='',
+            exception_prefix='Error in move_files_to_archive')
+
+
+def getInfo(dynamodb_tab, pass_val_PPK, pass_val_PSK, col_PPK, col_PSK):
+    """
+    dynamodb query function for the given params
+    :param dynamodb_tab: table as str
+    :param pass_val_PPK: primary key value
+    :param pass_val_PSK: secondary key value
+    :param col_PPK: primary key name
+    :param col_PSK: secondary key name
+    :return nameList: query response as list
+    """
+    try:
+        table = dynamodb.Table(dynamodb_tab)
+        response = table.query(
+            KeyConditionExpression=Key(col_PPK).eq(pass_val_PPK) & Key(
+                col_PSK).eq(pass_val_PSK)
+        )
+        nameList = []
+        for i in response['Items']:
+            nameList.append(i)
+        while 'LastEvaluatedKey' in response:
+            response = table.query(
+                KeyConditionExpression=Key(col_PPK).eq(pass_val_PPK) & Key(
+                    col_PSK).eq(pass_val_PSK))
+            for i in response['Items']:
+                nameList.append(i)
+        return nameList
+
+    except Exception as e:
+        error_message = f"Error in getInfo fn: {e}"
+        raise_exception_fn(
+            error_msg=error_message, fgi=fl_grp_id,
+            load_id=load_id,
+            job_id=job_id, landing_bkt='',
+            exception_prefix='Error in getInfo')
+
+
+def getTimeDiff(start, end):
+    """
+    calcu8ates time difference btw given 2 timestamps
+    :param start: start timestamp
+    :param end: end timestamp
+    :return:
+    """
+    try:
+        diff = end - start
+        seconds = diff.seconds
+        minutes = 0
+        hours = 0
+        if seconds > 60:
+            minutes = int(seconds / 60)
+            seconds = seconds % 60
+
+        if minutes > 60:
+            hours = int(minutes / 60)
+            minutes = minutes % 60
+
+        t = "%02i:%02i:%02i" % (hours, minutes, seconds)
+
+        return t
+
+    except Exception as e:
+        if hasattr(e, 'message'):
+            errorMessage = e.message
+        else:
+            errorMessage = e
+
+        error_message = f"Error in getTimeDiff fn: {errorMessage}"
+        raise_exception_fn(
+            error_msg=error_message, fgi=fl_grp_id,
+            load_id=load_id,
+            job_id=job_id, landing_bkt='',
+            exception_prefix='Error in getTimeDiff')
+
+
+def get_secret(secret_name, region_name):
+    """
+    Function to retrieve secrets from secret manager
+    """
+    try:
+        # create a Secrets Manager client
+        session = boto3.session.Session()
+        client = session.client(
+            service_name='secretsmanager', region_name=region_name)
+
+        get_secret_value_response = client.get_secret_value(
+            SecretId=secret_name)
+
+        if 'SecretString' in get_secret_value_response:
+            secret = get_secret_value_response['SecretString']
+            return ast.literal_eval(secret)
+        else:
+            decoded_binary_secret = base64.b64decode(
+                get_secret_value_response['SecretBinary'])
+            return decoded_binary_secret
+
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'DecryptionFailureException':
+            # Secrets Manager can't decrypt the protected secret text using
+            # the provided KMS key. Deal with the exception here, and/or
+            # rethrow at your discretion.
+            error_code = e.response['Error']['Code']
+            error_message = f"Error in get_secret fn: {e}"
+
+        elif e.response['Error']['Code'] == 'InternalServiceErrorException':
+            # An error occurred on the server side.
+            # Deal with the exception here, and/or rethrow at your discretion.
+            error_code = e.response['Error']['Code']
+            error_message = f"Error in get_secret fn: {e}"
+
+        elif e.response['Error']['Code'] == 'InvalidParameterException':
+            # You provided an invalid value for a parameter.
+            # Deal with the exception here, and/or rethrow at your discretion.
+            error_code = e.response['Error']['Code']
+            error_message = f"Error in get_secret fn: {e}"
+
+        elif e.response['Error']['Code'] == 'InvalidRequestException':
+            # You provided a parameter value that is not valid for the current
+            # state of the resource. Deal with the exception here, and/or
+            # rethrow at your discretion.
+            error_code = e.response['Error']['Code']
+            error_message = f"Error in get_secret fn: {e}"
+
+        elif e.response['Error']['Code'] == 'ResourceNotFoundException':
+            # We can't find the resource that you asked for. Deal with the
+            # exception here, and/or rethrow at your discretion.
+            error_code = e.response['Error']['Code']
+            error_message = f"Error in get_secret fn: {e}"
+
+        else:
+            error_code = 'Error in get_secret fn'
+            error_message = f"Error in get_secret fn: {e}"
+
+        raise_exception_fn(
+            error_msg=error_message, fgi=fl_grp_id,
+            load_id=load_id,
+            job_id=job_id, landing_bkt='',
+            exception_prefix=error_code)
+
+
+def fetch_job_id():
+    """
+    fetch job id from job config table
+    :return NA:
+    """
+    try:
+        job_id = ''
+        # fetch job ids for the process id
+        job_id_list = getAttrib(dynomodb_tab=job_cnf_tab, fet_obj='jobId',
+                                pass_val=pro_id, col_obj='processId')
+        # iterate & fetch the job id for the job name
+        for i in job_id_list:
+            job_n = getInfo(
+                dynamodb_tab=job_cnf_tab,
+                pass_val_PPK=pro_id, pass_val_PSK=i,
+                col_PPK='processId', col_PSK='jobId')[0]['jobName']
+            if job_n == job_nm:
+                job_id = i
+
+        return job_id
+
+    except Exception as e:
+        error_message = f"Error in fetch_job_id fn: {e}"
+        raise_exception_fn(
+            error_msg=error_message, fgi=fl_grp_id,
+            load_id=load_id,
+            job_id=job_id, landing_bkt='',
+            exception_prefix='Error in fetch_job_id')
+
+
+def raise_exception_fn(
+        error_msg, fgi, load_id, job_id, landing_bkt, exception_prefix):
+    """
+    update process log & raise exception in lambda with payload for
+    failure cases
+    :param error_msg: error msg as str
+    :param fgi: file group id as str
+    :param load_id: load id as str
+    :param job_id: job id as str
+    :param landing_bkt: landing bkt as str
+    :param exception_prefix: exception msg as str
+    :return:
+    """
+    logger.error(error_msg)
+    # payload
+    payload = {"Error": error_msg, "fileGroupID": fgi,
+               "sourceSystemName": src_nm, "loadId": load_id,
+               "job_country": "US",
+               "job_name": job_nm,
+               "status": "Failed", "layer": "Landing"}
+    logger.info(json.dumps(payload))
+    # update process log
+    update_process_log_table('Failed', error_msg, load_id, job_id, landing_bkt)
+    # raise exception
+    raise Exception(f"{exception_prefix}: {payload}")
+
+
+def update_process_log_table(
+        job_stats, error_msg, load_id, job_id, landing_bkt):
+    """
+    Updating process log details table
+    :param job_stats: job status as str
+    :param error_msg: error msg as str
+    :param load_id: load id as str
+    :param job_id: job id as str
+    :param landing_bkt: landing bkt name
+    :return NA:
+    """
+    try:
+        job_end_time = datetime.utcnow()
+        # create process log table entry
+        prc_log_dict = {'processId_loadId': pro_id + '_' + load_id,
+                        'processId': pro_id, 'jobRunId': job_run_id,
+                        'loadId': load_id, 'layer': 'Landing',
+                        'jobId': job_id, 'jobRunStatus': job_stats,
+                        'jobStartTime': job_strt_time.strftime(
+                            "%d-%b-%Y %H:%M:%S.%f"),
+                        'jobEndTime': job_end_time.strftime(
+                            '%Y-%m-%dT%H:%M:%S.%f')}
+        prc_log_tab = dynamodb.Table(pro_log_tab)
+        # populate process log table
+        prc_log_tab.put_item(Item=prc_log_dict)
+        logger.info('Process log table is populated')
+
+        if job_stats == 'Failed':
+            f_jsn = {"ProcessName": pro_id, "LoadId": load_id,
+                     "JobName": job_nm, "JobRunID": job_run_id,
+                     "DataSource": src_nm, "Region": aws_region,
+                     "Country": 'US', "Source": ''.join(landing_bkt),
+                     "Target": ''.join(landing_bkt), "SourceLayer": "SAP_SFTP",
+                     "TargetLayer": 'Landing',
+                     "FailureReason": str(error_msg),
+                     "FailedTime": job_end_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                     "ElapsedTime": getTimeDiff(job_strt_time, job_end_time),
+                     "Status": "JobFailed"}
+            logger.info('Enriched Job failed ' + str(f_jsn))
+
+    except Exception as e:
+        logger.error(f"Error occurred in updateProcessLogTable() method - {e}")
+        if hasattr(e, 'message'):
+            errorMessage = e.message
+        else:
+            errorMessage = e
+
+        raise Exception(
+            f"Error occurred in updateProcessLogTable method - {errorMessage}")
